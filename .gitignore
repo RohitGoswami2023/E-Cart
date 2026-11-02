@@ -1,0 +1,25 @@
+# Large datasets
+/data/
+
+# Credentials / secrets
+.env
+.env.*
+!.env.example
+application-test.properties
+
+# IDE / OS files
+*.iml
+.idea/
+.vscode/
+
+# Build artifacts
+/target/
+*.class
+/frontend/dist/
+/backend/target/
+
+# Logs
+*.log
+
+# Backend data
+/backend/data
