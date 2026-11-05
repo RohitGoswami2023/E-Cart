@@ -1,9 +1,10 @@
 package com.ecommerce.project.exceptions;
 
-
 import com.ecommerce.project.payload.APIResponse;
+import com.stripe.exception.StripeException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -23,21 +24,36 @@ public class MyGlobalExceptionHandler {
             String message = err.getDefaultMessage();
             response.put(fieldName, message);
         });
-        return new ResponseEntity<Map<String, String>>(response,
-                HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<APIResponse> myResourceNotFoundException(ResourceNotFoundException e) {
-        String message = e.getMessage();
-        APIResponse apiResponse = new APIResponse(message, false);
+        APIResponse apiResponse = new APIResponse(e.getMessage(), false);
         return new ResponseEntity<>(apiResponse, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(APIException.class)
     public ResponseEntity<APIResponse> myAPIException(APIException e) {
-        String message = e.getMessage();
-        APIResponse apiResponse = new APIResponse(message, false);
+        APIResponse apiResponse = new APIResponse(e.getMessage(), false);
         return new ResponseEntity<>(apiResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(StripeException.class)
+    public ResponseEntity<APIResponse> stripe(StripeException e) {
+        APIResponse apiResponse = new APIResponse("Payment error", false);
+        return new ResponseEntity<>(apiResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(UsernameNotFoundException.class)
+    public ResponseEntity<APIResponse> user(UsernameNotFoundException e) {
+        APIResponse apiResponse = new APIResponse(e.getMessage(), false);
+        return new ResponseEntity<>(apiResponse, HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<APIResponse> other(Exception e) {
+        APIResponse apiResponse = new APIResponse("Request failed", false);
+        return new ResponseEntity<>(apiResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

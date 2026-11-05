@@ -1,5 +1,8 @@
 package com.ecommerce.project.service;
 
+// Connected to: OrderRepository, CartRepository, ProductRepository, PaymentRepository, RedisStockGateService, StripeService
+// Purpose: Order placement with payment verification, stock reservation, saga compensation
+
 import com.ecommerce.project.exceptions.APIException;
 import com.ecommerce.project.exceptions.ResourceNotFoundException;
 import com.ecommerce.project.model.*;
@@ -8,9 +11,12 @@ import com.ecommerce.project.payload.OrderItemDTO;
 import com.ecommerce.project.payload.OrderResponse;
 import com.ecommerce.project.repositories.*;
 import com.ecommerce.project.util.AuthUtil;
+import com.stripe.exception.StripeException;
+import com.stripe.model.PaymentIntent;
 import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,11 +26,9 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class OrderServiceImpl implements OrderService {
-
     @Autowired
     CartRepository cartRepository;
 
@@ -55,6 +59,12 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     AuthUtil authUtil;
 
+    @Autowired
+    StripeService stripeService;
+
+    @Value("${stripe.currency:usd}")
+    private String stripeCurrency;
+
     @Override
     @Transactional
     public OrderDTO placeOrder(String emailId, Long addressId, String paymentMethod, String pgName, String pgPaymentId, String pgStatus, String pgResponseMessage) {
@@ -62,28 +72,53 @@ public class OrderServiceImpl implements OrderService {
         if (cart == null) {
             throw new ResourceNotFoundException("Cart", "email", emailId);
         }
+        List<CartItem> cartItems = cart.getCartItems();
+        if (cartItems == null || cartItems.isEmpty()) {
+            throw new APIException("Cart is empty");
+        }
 
         Address address = addressRepository.findById(addressId)
                 .orElseThrow(() -> new ResourceNotFoundException("Address", "addressId", addressId));
+        if (address.getUser() == null || address.getUser().getEmail() == null
+                || !address.getUser().getEmail().equalsIgnoreCase(emailId)) {
+            throw new ResourceNotFoundException("Address", "addressId", addressId);
+        }
+
+        long expectedAmount = Math.round(cart.getTotalPrice() * 100);
+        String verifiedPgStatus = pgStatus;
+        String verifiedMessage = pgResponseMessage;
+
+        if (paymentMethod != null && paymentMethod.equalsIgnoreCase("STRIPE")) {
+            try {
+                PaymentIntent intent = stripeService.retrieve(pgPaymentId);
+                if (intent == null || !"succeeded".equalsIgnoreCase(intent.getStatus())) {
+                    throw new APIException("Payment not succeeded");
+                }
+                if (intent.getAmount() == null || !intent.getAmount().equals(expectedAmount)) {
+                    throw new APIException("Payment amount mismatch");
+                }
+                if (intent.getCurrency() != null && !intent.getCurrency().equalsIgnoreCase(stripeCurrency)) {
+                    throw new APIException("Payment currency mismatch");
+                }
+                verifiedPgStatus = intent.getStatus();
+                verifiedMessage = "verified";
+            } catch (StripeException e) {
+                throw new APIException("Payment verification failed");
+            }
+        }
 
         Order order = new Order();
         order.setEmail(emailId);
         order.setOrderDate(LocalDate.now());
         order.setTotalAmount(cart.getTotalPrice());
-        order.setOrderStatus("Accepted");
+        order.setOrderStatus("Order Confirmed");
         order.setAddress(address);
 
-        Payment payment = new Payment(paymentMethod, pgPaymentId, pgStatus, pgResponseMessage, pgName);
+        Payment payment = new Payment(paymentMethod, pgPaymentId, verifiedPgStatus, verifiedMessage, pgName);
         payment.setOrder(order);
         payment = paymentRepository.save(payment);
         order.setPayment(payment);
-
         Order savedOrder = orderRepository.save(order);
-
-        List<CartItem> cartItems = cart.getCartItems();
-        if (cartItems.isEmpty()) {
-            throw new APIException("Cart is empty");
-        }
 
         List<OrderItem> orderItems = new ArrayList<>();
         for (CartItem cartItem : cartItems) {
@@ -95,18 +130,13 @@ public class OrderServiceImpl implements OrderService {
             orderItem.setOrder(savedOrder);
             orderItems.add(orderItem);
         }
-
         orderItems = orderItemRepository.saveAll(orderItems);
 
-        // Track successfully decremented items for SAGA compensating rollback if downstream payment fails
-        List<CartItem> decrementedItems = new ArrayList<>();
         List<CartItem> redisReservedItems = new ArrayList<>();
         try {
-            // STEP 1: REDIS STOCK GATE (Shield PostgreSQL from excess traffic)
             for (CartItem item : cart.getCartItems()) {
                 Long productId = item.getProduct().getProductId();
                 int qty = item.getQuantity();
-
                 boolean redisAllowed = redisStockGateService.tryReserveStock(productId, qty);
                 if (!redisAllowed) {
                     throw new APIException("Product '" + item.getProduct().getProductName() + "' is sold out (Redis Gate)!");
@@ -114,87 +144,66 @@ public class OrderServiceImpl implements OrderService {
                 redisReservedItems.add(item);
             }
 
-            // STEP 2: POSTGRESQL ATOMIC DURABLE DECREMENT (ACID Commit)
             for (CartItem item : cart.getCartItems()) {
                 int quantity = item.getQuantity();
                 Long productId = item.getProduct().getProductId();
-
                 int updated = productRepository.decrementStockSafely(productId, quantity);
                 if (updated == 0) {
-                    throw new APIException("Product '" + item.getProduct().getProductName() + 
+                    throw new APIException("Product '" + item.getProduct().getProductName() +
                             "' is out of stock or insufficient quantity!");
                 }
-                decrementedItems.add(item);
             }
 
-            // Verify payment status (Saga check for external Stripe / Payment Gateway)
-            if (pgStatus != null && (pgStatus.equalsIgnoreCase("FAILED") || pgStatus.equalsIgnoreCase("requires_payment_method"))) {
-                throw new APIException("Payment failed via gateway: " + pgResponseMessage);
-            }
-
-            // Remove items from cart once reservation and payment validation succeed
             List<Long> productIdsToRemove = cart.getCartItems().stream()
                     .map(item -> item.getProduct().getProductId())
                     .toList();
             for (Long pid : productIdsToRemove) {
-                cartService.deleteProductFromCart(cart.getCartId(), pid);
+                cartService.clearProductFromCart(cart.getCartId(), pid);
             }
-
         } catch (Exception e) {
-            // SAGA COMPENSATING ACTION:
-            // 1. Roll back inventory in PostgreSQL
-            for (CartItem rolledBackItem : decrementedItems) {
-                productRepository.incrementStock(rolledBackItem.getProduct().getProductId(), rolledBackItem.getQuantity());
-            }
-
-            // 2. Roll back reservation in Redis
             for (CartItem redisItem : redisReservedItems) {
                 redisStockGateService.rollbackReservation(redisItem.getProduct().getProductId(), redisItem.getQuantity());
             }
-
-            // Update order and payment records to FAILED so history is preserved
-            savedOrder.setOrderStatus("Payment Failed");
-            orderRepository.save(savedOrder);
-            payment.setPgStatus("FAILED");
-            payment.setPgResponseMessage(e.getMessage());
-            paymentRepository.save(payment);
-
             throw e;
         }
 
         OrderDTO orderDTO = modelMapper.map(savedOrder, OrderDTO.class);
+        if (orderDTO.getOrderItems() == null) {
+            orderDTO.setOrderItems(new ArrayList<>());
+        }
         orderItems.forEach(item -> orderDTO.getOrderItems().add(modelMapper.map(item, OrderItemDTO.class)));
-
         orderDTO.setAddressId(addressId);
-
         return orderDTO;
     }
 
     @Override
     public OrderResponse getAllOrders(Integer pageNumber, Integer pageSize, String sortBy, String sortOrder) {
-        Sort sortByAndOrder = sortOrder.equalsIgnoreCase("asc")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
-        Pageable pageDetails = PageRequest.of(pageNumber, pageSize, sortByAndOrder);
-        Page<Order> pageOrders = orderRepository.findAll(pageDetails);
-        List<Order> orders = pageOrders.getContent();
-        List<OrderDTO> orderDTOs = orders.stream()
-                .map(order -> modelMapper.map(order, OrderDTO.class))
-                .toList();
-        OrderResponse orderResponse = new OrderResponse();
-        orderResponse.setContent(orderDTOs);
-        orderResponse.setPageNumber(pageOrders.getNumber());
-        orderResponse.setPageSize(pageOrders.getSize());
-        orderResponse.setTotalElements(pageOrders.getTotalElements());
-        orderResponse.setTotalPages(pageOrders.getTotalPages());
-        orderResponse.setLastPage(pageOrders.isLast());
-        return orderResponse;
+        Page<Order> pageOrders = orderRepository.findAll(page(pageNumber, pageSize, sortBy, sortOrder));
+        return toResponse(pageOrders);
     }
 
     @Override
     public OrderDTO updateOrder(Long orderId, String status) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order","orderId",orderId));
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "orderId", orderId));
+        order.setOrderStatus(status);
+        orderRepository.save(order);
+        return modelMapper.map(order, OrderDTO.class);
+    }
+
+    @Override
+    public OrderDTO updateSellerOrder(Long orderId, String status) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "orderId", orderId));
+        User seller = authUtil.loggedInUser();
+        boolean owns = order.getOrderItems() != null && order.getOrderItems().stream().anyMatch(item -> {
+            Product product = item.getProduct();
+            return product != null && product.getUser() != null
+                    && product.getUser().getUserId().equals(seller.getUserId());
+        });
+        if (!owns) {
+            throw new ResourceNotFoundException("Order", "orderId", orderId);
+        }
         order.setOrderStatus(status);
         orderRepository.save(order);
         return modelMapper.map(order, OrderDTO.class);
@@ -202,28 +211,36 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderResponse getAllSellerOrders(Integer pageNumber, Integer pageSize, String sortBy, String sortOrder) {
+        User seller = authUtil.loggedInUser();
+        Page<Order> pageOrders = orderRepository.findBySellerId(seller.getUserId(),
+                page(pageNumber, pageSize, sortBy, sortOrder));
+        return toResponse(pageOrders);
+    }
+
+    @Override
+    public OrderResponse getUserOrders(Integer pageNumber, Integer pageSize, String sortBy, String sortOrder) {
+        String email = authUtil.loggedInEmail();
+        Page<Order> pageOrders = orderRepository.findByEmail(email, page(pageNumber, pageSize, sortBy, sortOrder));
+        return toResponse(pageOrders);
+    }
+
+    @Override
+    public OrderDTO getUserOrder(Long orderId) {
+        String email = authUtil.loggedInEmail();
+        Order order = orderRepository.findByOrderIdAndEmail(orderId, email)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "orderId", orderId));
+        return modelMapper.map(order, OrderDTO.class);
+    }
+
+    private Pageable page(Integer pageNumber, Integer pageSize, String sortBy, String sortOrder) {
         Sort sortByAndOrder = sortOrder.equalsIgnoreCase("asc")
                 ? Sort.by(sortBy).ascending()
                 : Sort.by(sortBy).descending();
-        Pageable pageDetails = PageRequest.of(pageNumber, pageSize, sortByAndOrder);
+        return PageRequest.of(pageNumber, pageSize, sortByAndOrder);
+    }
 
-        User seller = authUtil.loggedInUser();
-
-        Page<Order> pageOrders = orderRepository.findAll(pageDetails);
-
-        List<Order> sellerOrders = pageOrders.getContent().stream()
-                .filter(order -> order.getOrderItems().stream()
-                        .anyMatch(orderItem -> {
-                            var product = orderItem.getProduct();
-                            if (product == null || product.getUser() == null) {
-                                return false;
-                            }
-                            return product.getUser().getUserId().equals(
-                                    seller.getUserId());
-                        }))
-                .toList();
-
-        List<OrderDTO> orderDTOs = sellerOrders.stream()
+    private OrderResponse toResponse(Page<Order> pageOrders) {
+        List<OrderDTO> orderDTOs = pageOrders.getContent().stream()
                 .map(order -> modelMapper.map(order, OrderDTO.class))
                 .toList();
         OrderResponse orderResponse = new OrderResponse();
@@ -235,6 +252,4 @@ public class OrderServiceImpl implements OrderService {
         orderResponse.setLastPage(pageOrders.isLast());
         return orderResponse;
     }
-
-
 }

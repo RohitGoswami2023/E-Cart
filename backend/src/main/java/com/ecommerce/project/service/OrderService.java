@@ -12,5 +12,11 @@ public interface OrderService {
 
     OrderDTO updateOrder(Long orderId, String status);
 
+    OrderDTO updateSellerOrder(Long orderId, String status);
+
     OrderResponse getAllSellerOrders(Integer pageNumber, Integer pageSize, String sortBy, String sortOrder);
+
+    OrderResponse getUserOrders(Integer pageNumber, Integer pageSize, String sortBy, String sortOrder);
+
+    OrderDTO getUserOrder(Long orderId);
 }

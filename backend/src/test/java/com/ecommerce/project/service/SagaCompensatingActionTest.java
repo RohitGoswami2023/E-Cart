@@ -1,5 +1,6 @@
 package com.ecommerce.project.service;
 
+import com.ecommerce.project.benchmark.BenchmarkReport;
 import com.ecommerce.project.exceptions.APIException;
 import com.ecommerce.project.model.*;
 import com.ecommerce.project.repositories.*;
@@ -104,10 +105,10 @@ public class SagaCompensatingActionTest {
     @Test
     @DisplayName("Saga Compensation: Stock should be restored if Payment Gateway fails downstream")
     void shouldRestoreStockWhenPaymentFails() {
+        long t0 = System.currentTimeMillis();
         int initialStock = productRepository.findById(testProductId).get().getQuantity();
         assertEquals(20, initialStock);
 
-        // Attempt order placement with simulated payment failure (pgStatus = "FAILED")
         assertThrows(APIException.class, () -> {
             orderService.placeOrder(
                     testEmail,
@@ -120,10 +121,9 @@ public class SagaCompensatingActionTest {
             );
         });
 
-        // SAGA VERIFICATION:
-        // Even though decrementStockSafely decremented the stock initially,
-        // the compensating transaction must restore it back to initialStock (20)
         Product productAfterRollback = productRepository.findById(testProductId).orElseThrow();
+        boolean passed = productAfterRollback.getQuantity() == 20;
+        BenchmarkReport.record("saga-compensation", passed, System.currentTimeMillis() - t0, 20, productAfterRollback.getQuantity(), null, null);
         assertEquals(20, productAfterRollback.getQuantity(),
                 "SAGA Compensation failed: Stock was not restored after payment gateway failure!");
     }

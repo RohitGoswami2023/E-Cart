@@ -1,5 +1,6 @@
 package com.ecommerce.project.service;
 
+import com.ecommerce.project.benchmark.BenchmarkReport;
 import com.ecommerce.project.controller.StripeWebhookController;
 import com.ecommerce.project.model.*;
 import com.ecommerce.project.payload.StripePaymentDto;
@@ -66,6 +67,7 @@ public class StripeReliabilityPipelineTest {
     @Test
     @DisplayName("1. Idempotency Guarantee: Same Idempotency Key returns identical PaymentIntent ID")
     void testStripeIdempotencyKey() throws Exception {
+        long t0 = System.currentTimeMillis();
         String testIdempotencyKey = "test_idem_" + UUID.randomUUID();
         String uniqueCustomerEmail = "idem_" + System.currentTimeMillis() + "@example.com";
 
@@ -77,7 +79,7 @@ public class StripeReliabilityPipelineTest {
         testAddress.setPincode("94103");
 
         StripePaymentDto dto1 = new StripePaymentDto();
-        dto1.setAmount(50000L); // $500.00
+        dto1.setAmount(50000L);
         dto1.setCurrency("usd");
         dto1.setEmail(uniqueCustomerEmail);
         dto1.setName("Idem User");
@@ -85,33 +87,31 @@ public class StripeReliabilityPipelineTest {
         dto1.setAddress(testAddress);
         dto1.setMetadata(Map.of("idempotencyKey", testIdempotencyKey));
 
-        // First PaymentIntent creation
         PaymentIntent firstIntent = stripeService.paymentIntent(dto1);
         assertThat(firstIntent).isNotNull();
         String firstId = firstIntent.getId();
 
-        // Second duplicate submit with exact same params and key (simulating double-click / network retry)
         PaymentIntent secondIntent = stripeService.paymentIntent(dto1);
         assertThat(secondIntent).isNotNull();
         String secondId = secondIntent.getId();
 
-        // MUST be identical — Stripe deduplicated the request!
+        boolean passed = firstId.equals(secondId);
+        BenchmarkReport.record("stripe-idempotency", passed, System.currentTimeMillis() - t0, null, null, null, null);
         assertThat(firstId).isEqualTo(secondId);
-        System.out.println("✅ Stripe Idempotency Verified: First ID=" + firstId + " == Second ID=" + secondId);
+        System.out.println("Stripe Idempotency Verified: First ID=" + firstId + " == Second ID=" + secondId);
     }
 
     @Test
     @DisplayName("2. Webhook Handling & Compensation: payment_intent.payment_failed restores inventory")
     @Transactional
     void testWebhookCompensationRollback() {
-        // Setup Order & Payment with 2 reserved units
+        long t0 = System.currentTimeMillis();
         User user = new User();
         user.setUserName("webhookUser" + System.currentTimeMillis() % 10000);
         user.setEmail("webhook_user_" + System.currentTimeMillis() + "@example.com");
         user.setPassword("password123");
         user = userRepository.save(user);
 
-        // 1. Save Address
         Address address = new Address();
         address.setStreet("789 Webhook Ave");
         address.setBuildingName("Floor 4");
@@ -123,10 +123,9 @@ public class StripeReliabilityPipelineTest {
         address = addressRepository.save(address);
 
         Product product = productRepository.findById(testProductId).orElseThrow();
-        product.setQuantity(8); // Simulated: 2 units were decremented for order reservation
+        product.setQuantity(8);
         productRepository.save(product);
 
-        // 2. Setup Order without pre-saving to let CascadeType.PERSIST handle order and items together
         Order order = new Order();
         order.setEmail(user.getEmail());
         order.setOrderDate(LocalDate.now());
@@ -144,7 +143,6 @@ public class StripeReliabilityPipelineTest {
 
         order = orderRepository.save(order);
 
-        // 3. Save Payment
         String mockPaymentIntentId = "pi_webhook_test_" + UUID.randomUUID().toString().substring(0, 8);
         Payment payment = new Payment("STRIPE", mockPaymentIntentId, "PENDING", "Awaiting Webhook", "STRIPE");
         payment.setOrder(order);
@@ -152,10 +150,8 @@ public class StripeReliabilityPipelineTest {
         order.setPayment(payment);
         order = orderRepository.save(order);
 
-        // Verify stock is at 8 before failure
         assertThat(productRepository.findById(testProductId).get().getQuantity()).isEqualTo(8);
 
-        // Simulate incoming Stripe Webhook JSON event: payment_intent.payment_failed
         String webhookJson = "{\n" +
                 "  \"id\": \"evt_test_123\",\n" +
                 "  \"object\": \"event\",\n" +
@@ -177,19 +173,17 @@ public class StripeReliabilityPipelineTest {
         ResponseEntity<String> response = stripeWebhookController.handleStripeWebhook(webhookJson, null);
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
 
-        // Evict L1 Hibernate cache to see direct DB state after the native query rollback
         productRepository.flush();
 
-        // VERIFY SAGA RESTORATION:
-        // Stock must have rolled back from 8 -> 10!
         Product productAfterCompensation = productRepository.findById(testProductId).orElseThrow();
+        boolean passed = productAfterCompensation.getQuantity() == 10;
+        BenchmarkReport.record("stripe-webhook-compensation", passed, System.currentTimeMillis() - t0, 8, productAfterCompensation.getQuantity(), null, null);
         assertThat(productAfterCompensation.getQuantity()).isEqualTo(10);
 
-        // Order status must be updated to 'Payment Failed'
         Order orderAfterWebhook = orderRepository.findById(order.getOrderId()).orElseThrow();
         assertThat(orderAfterWebhook.getOrderStatus()).isEqualTo("Payment Failed");
 
-        System.out.println("✅ Stripe Webhook Compensation Verified: Stock restored to " + productAfterCompensation.getQuantity());
+        System.out.println("Stripe Webhook Compensation Verified: Stock restored to " + productAfterCompensation.getQuantity());
     }
 }
 

@@ -37,7 +37,6 @@ public class Order {
     private Double totalAmount;
     private String orderStatus;
 
-    // Reference to Address
     @ManyToOne
     @JoinColumn(name = "address_id")
     private Address address;

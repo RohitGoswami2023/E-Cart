@@ -14,14 +14,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Verifies that the DB row counts match the CSV file row counts (minus the header).
- *
- * <p>Run with:
- * <pre>
- *   .\mvnw.cmd spring-boot:run -Dspring-boot.run.arguments=--verify-import
- * </pre>
- */
 @Component
 @Order(2)
 public class DataImportVerifier implements CommandLineRunner {
@@ -32,7 +24,6 @@ public class DataImportVerifier implements CommandLineRunner {
             .getParent()
             .resolve("data");
 
-    /** Maps CSV base-name → actual DB table name */
     private static final Map<String, String> TABLE_MAP = new LinkedHashMap<>();
 
     static {
@@ -63,10 +54,9 @@ public class DataImportVerifier implements CommandLineRunner {
             String csvKey  = entry.getKey();
             String table   = entry.getValue();
 
-            // Find the actual CSV file (handles nested-folder pattern)
             Path csvPath = findCsv(csvKey);
             if (csvPath == null) {
-                log.warn("⚠️  CSV not found for key '{}' – skipping", csvKey);
+                log.warn("CSV not found for key '{}' – skipping", csvKey);
                 continue;
             }
 
@@ -75,22 +65,21 @@ public class DataImportVerifier implements CommandLineRunner {
             if (dbRows == null) dbRows = 0L;
 
             if (csvRows == dbRows) {
-                log.info("✅ '{}': CSV={} rows, DB={} rows – MATCH", table, csvRows, dbRows);
+                log.info("'{}': CSV={} rows, DB={} rows – MATCH", table, csvRows, dbRows);
             } else {
-                log.warn("⚠️  '{}': CSV={} rows, DB={} rows – MISMATCH (delta: {})", table, csvRows, dbRows, csvRows - dbRows);
+                log.warn("'{}': CSV={} rows, DB={} rows – MISMATCH (delta: {})", table, csvRows, dbRows, csvRows - dbRows);
                 allOk = false;
             }
         }
 
         if (allOk) {
-            log.info("=== All tables match ✅ ===");
+            log.info("=== All tables match ===");
         } else {
             log.warn("=== Some tables have mismatches – review warnings above ===");
         }
     }
 
     private Path findCsv(String key) throws IOException {
-        // Pattern: data/<key>.csv/<key>.csv  OR  data/<key>.csv
         Path nested = DATA_DIR.resolve(key + ".csv").resolve(key + ".csv");
         if (Files.isRegularFile(nested)) return nested;
         Path flat = DATA_DIR.resolve(key + ".csv");
@@ -100,7 +89,7 @@ public class DataImportVerifier implements CommandLineRunner {
 
     private long countCsvRows(Path csv) throws IOException {
         try (BufferedReader br = Files.newBufferedReader(csv)) {
-            return br.lines().skip(1).count(); // skip header
+            return br.lines().skip(1).count();
         }
     }
 }

@@ -14,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,10 +26,10 @@ public class AuthController {
     AuthService authService;
 
     @PostMapping("/signin")
-    public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         AuthenticationResult result = authService.login(loginRequest);
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE,
-                result.getJwtCookie().toString())
+                        result.getJwtCookie().toString())
                 .body(result.getResponse());
     }
 
@@ -38,21 +39,20 @@ public class AuthController {
     }
 
     @GetMapping("/username")
-    public String currentUserName(Authentication authentication){
+    public String currentUserName(Authentication authentication) {
         if (authentication != null)
             return authentication.getName();
         else
             return "";
     }
 
-
     @GetMapping("/user")
-    public ResponseEntity<?> getUserDetails(Authentication authentication){
+    public ResponseEntity<?> getUserDetails(Authentication authentication) {
         return ResponseEntity.ok().body(authService.getCurrentUserDetails(authentication));
     }
 
     @PostMapping("/signout")
-    public ResponseEntity<?> signoutUser(){
+    public ResponseEntity<?> signoutUser() {
         ResponseCookie cookie = authService.logoutUser();
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE,
                         cookie.toString())
@@ -60,14 +60,12 @@ public class AuthController {
     }
 
     @GetMapping("/sellers")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getAllSellers(
             @RequestParam(name = "pageNumber", defaultValue = AppConstants.PAGE_NUMBER, required = false) Integer pageNumber) {
-
         Sort sortByAndOrder = Sort.by(AppConstants.SORT_USERS_BY).descending();
-        Pageable pageDetails = PageRequest.of(pageNumber ,
+        Pageable pageDetails = PageRequest.of(pageNumber,
                 Integer.parseInt(AppConstants.PAGE_SIZE), sortByAndOrder);
-
         return ResponseEntity.ok(authService.getAllSellers(pageDetails));
     }
-
 }

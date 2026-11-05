@@ -1,5 +1,4 @@
 package com.ecommerce.project.concurrency;
-
 import com.ecommerce.project.model.*;
 import com.ecommerce.project.repositories.*;
 import com.ecommerce.project.service.OrderService;
@@ -9,26 +8,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
-
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Big Billion Days (BBD) Flash Sale Simulation Test.
- *
- * Simulates:
- * - 2,000 Concurrent Customer requests
- * - 1,000 Flash Sale units on a hot product
- * - Real user accounts loaded from PostgreSQL
- * - Multiple real-world chaotic conditions:
- *     1. Payment Gateway timeout / Card Decline (Saga compensation trigger)
- *     2. Stock Exhaustion (Oversell prevention / Atomic updates)
- *     3. Idempotent Retry attempts (Double click payments)
- *     4. Clean order completions
- */
 @SpringBootTest
 @ActiveProfiles("test")
 public class BbdFlashSaleSimulationTest {
@@ -59,18 +43,16 @@ public class BbdFlashSaleSimulationTest {
         int CONCURRENT_THREADS = 64; // High concurrency thread pool
 
         System.out.println("\n========================================================");
-        System.out.println("🚀 STARTING BIG BILLION DAYS (BBD) FLASH SALE SIMULATION");
+        System.out.println("STARTING BIG BILLION DAYS (BBD) FLASH SALE SIMULATION");
         System.out.println("========================================================");
         System.out.printf("Total Buyers: %d | Available Stock: %d | Concurrency Level: %d\n\n",
                 TOTAL_BUYERS, FLASH_SALE_STOCK, CONCURRENT_THREADS);
 
-        // 1. Fetch real customer accounts directly from PostgreSQL (Users table has 1M rows)
         System.out.println("Step 1: Fetching " + TOTAL_BUYERS + " real users from PostgreSQL...");
         List<User> sampleUsers = userRepository.findAll(PageRequest.of(0, TOTAL_BUYERS)).getContent();
         assertThat(sampleUsers.size()).isGreaterThanOrEqualTo(TOTAL_BUYERS);
-        System.out.println("✅ Loaded " + sampleUsers.size() + " customers from PostgreSQL database.");
+        System.out.println("Loaded " + sampleUsers.size() + " customers from PostgreSQL database.");
 
-        // 2. Setup Hot Flash Sale Product
         System.out.println("Step 2: Preparing Hot Flash Sale Product in DB with " + FLASH_SALE_STOCK + " stock...");
         Product hotProduct = new Product();
         hotProduct.setProductName("BBD iPhone 16 Pro Max - Midnight Black");
@@ -83,14 +65,12 @@ public class BbdFlashSaleSimulationTest {
         final Product savedProduct = productRepository.save(hotProduct);
         final Long hotProductId = savedProduct.getProductId();
 
-        // 3. Setup Address and Cart for all 2,000 users in batch
         System.out.println("Step 3: Staging carts & shipping addresses for all 2,000 customers...");
         List<Long> addressIds = new ArrayList<>(TOTAL_BUYERS);
 
         for (int i = 0; i < TOTAL_BUYERS; i++) {
             User buyer = sampleUsers.get(i);
 
-            // Reusable or new test address
             Address addr = new Address();
             addr.setStreet("Street " + i + " Tech Hub");
             addr.setBuildingName("Flat " + (i + 1) + " Tower BBD");
@@ -102,7 +82,6 @@ public class BbdFlashSaleSimulationTest {
             addr = addressRepository.save(addr);
             addressIds.add(addr.getAddressId());
 
-            // Cart with 1 quantity of the hot item
             Cart cart = cartRepository.findCartByEmail(buyer.getEmail());
             if (cart == null) {
                 cart = new Cart();
@@ -125,13 +104,11 @@ public class BbdFlashSaleSimulationTest {
             cart.getCartItems().add(cartItem);
             cartRepository.save(cart);
         }
-        System.out.println("✅ All 2,000 buyer carts and shipping destinations prepared.");
+        System.out.println("All 2,000 buyer carts and shipping destinations prepared.");
 
-        // 4. Concurrency Execution Structures
         ExecutorService executor = Executors.newFixedThreadPool(CONCURRENT_THREADS);
         CountDownLatch doneLatch = new CountDownLatch(TOTAL_BUYERS);
 
-        // Metrics counters
         AtomicInteger successfulOrders = new AtomicInteger(0);
         AtomicInteger paymentDeclinedCount = new AtomicInteger(0);
         AtomicInteger outOfStockCount = new AtomicInteger(0);
@@ -140,7 +117,7 @@ public class BbdFlashSaleSimulationTest {
         System.out.println("\nStep 4: Aligning all 2,000 buyers at the starting gate for synchronized checkout...");
 
         long startTime = System.currentTimeMillis();
-        System.out.println("🔥 FLASH SALE TRIGGERED! 2,000 requests firing across pool...");
+        System.out.println("FLASH SALE TRIGGERED! 2,000 requests firing across pool...");
 
         for (int i = 0; i < TOTAL_BUYERS; i++) {
             final int index = i;
@@ -149,8 +126,6 @@ public class BbdFlashSaleSimulationTest {
 
             executor.submit(() -> {
                 try {
-                    // Simulate real world checkout behavior:
-                    // 15% of payment attempts fail (Card declined, OTP timeout, bank server 504)
                     boolean willPaymentFail = (index % 7 == 0); 
 
                     String pgPaymentId = "stripe_ch_" + UUID.randomUUID().toString().substring(0, 8);
@@ -189,35 +164,31 @@ public class BbdFlashSaleSimulationTest {
         long durationMs = System.currentTimeMillis() - startTime;
         executor.shutdown();
 
-        // 5. Verification & Assertions
         Product productAfterSale = productRepository.findById(hotProductId).orElseThrow();
         int finalStock = productAfterSale.getQuantity();
 
         System.out.println("\n========================================================");
-        System.out.println("📊 BBD FLASH SALE RESULTS & METRICS");
+        System.out.println("BBD FLASH SALE RESULTS & METRICS");
         System.out.println("========================================================");
         System.out.printf("Total Requests Processed:     %d\n", TOTAL_BUYERS);
         System.out.printf("Elapsed Execution Time:       %d ms (%.2f seconds)\n", durationMs, durationMs / 1000.0);
         System.out.printf("Throughput:                   %.2f req/sec\n", (TOTAL_BUYERS * 1000.0) / durationMs);
         System.out.println("--------------------------------------------------------");
-        System.out.printf("✅ Successful Confirmed Orders: %d\n", successfulOrders.get());
-        System.out.printf("💳 Payment Declined (Reverted): %d (Saga Rollbacks)\n", paymentDeclinedCount.get());
-        System.out.printf("🛑 Out-of-Stock Rejections:    %d\n", outOfStockCount.get());
-        System.out.printf("⚠️  Other Errors:              %d\n", otherErrors.get());
+        System.out.printf("Successful Confirmed Orders: %d\n", successfulOrders.get());
+        System.out.printf("Payment Declined (Reverted): %d (Saga Rollbacks)\n", paymentDeclinedCount.get());
+        System.out.printf("Out-of-Stock Rejections:    %d\n", outOfStockCount.get());
+        System.out.printf("Other Errors:              %d\n", otherErrors.get());
         System.out.println("--------------------------------------------------------");
         System.out.printf("Initial Stock:                %d\n", FLASH_SALE_STOCK);
         System.out.printf("Ending Stock in PostgreSQL:   %d\n", finalStock);
         System.out.println("========================================================\n");
 
-        // SYSTEM DESIGN INVARIANTS CHECK:
-        // 1. Overselling Invariant: Final stock must never be negative!
         assertThat(finalStock).isGreaterThanOrEqualTo(0);
-
-        // 2. Exact Conservation Invariant: Initial Stock = Final Stock + Successful Orders
-        // Any item that had a payment decline was reverted back to stock by the Saga compensator!
         assertThat(FLASH_SALE_STOCK).isEqualTo(finalStock + successfulOrders.get());
 
-        System.out.println("🎯 INVARIANTS VERIFIED:");
+        com.ecommerce.project.benchmark.BenchmarkReport.record("bbd-flash-sale", true, durationMs, FLASH_SALE_STOCK, finalStock, successfulOrders.get(), paymentDeclinedCount.get() + outOfStockCount.get() + otherErrors.get());
+
+        System.out.println("INVARIANTS VERIFIED:");
         System.out.println("  1. Zero Overselling: Stock never went negative.");
         System.out.println("  2. Perfect Saga Reversals: Initial Stock == Ending Stock + Successful Orders.");
         System.out.println("  3. Downstream payment failures did not lock or leak inventory!");

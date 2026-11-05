@@ -8,13 +8,11 @@ import java.util.List;
 public interface AddressService {
     AddressDTO createAddress(AddressDTO addressDTO, User user);
 
-    List<AddressDTO> getAddresses();
-
-    AddressDTO getAddressesById(Long addressId);
+    AddressDTO getAddressesById(Long addressId, User user);
 
     List<AddressDTO> getUserAddresses(User user);
 
-    AddressDTO updateAddress(Long addressId, AddressDTO addressDTO);
+    AddressDTO updateAddress(Long addressId, AddressDTO addressDTO, User user);
 
-    String deleteAddress(Long addressId);
+    String deleteAddress(Long addressId, User user);
 }

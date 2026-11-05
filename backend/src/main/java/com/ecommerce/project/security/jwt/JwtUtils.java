@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.WebUtils;
 
@@ -31,13 +30,12 @@ public class JwtUtils {
     @Value("${spring.ecom.app.jwtCookieName}")
     private String jwtCookie;
 
+    @Value("${jwt.cookie.secure:false}")
+    private boolean jwtCookieSecure;
+
     public String getJwtFromCookies(HttpServletRequest request) {
         Cookie cookie = WebUtils.getCookie(request, jwtCookie);
-        if (cookie != null) {
-            return cookie.getValue();
-        } else {
-            return null;
-        }
+        return cookie != null ? cookie.getValue() : null;
     }
 
     public String getJwtFromHeader(HttpServletRequest request) {
@@ -50,20 +48,22 @@ public class JwtUtils {
 
     public ResponseCookie generateJwtCookie(UserDetailsImpl userPrincipal) {
         String jwt = generateTokenFromUsername(userPrincipal.getUsername());
-        ResponseCookie cookie = ResponseCookie.from(jwtCookie, jwt)
+        return ResponseCookie.from(jwtCookie, jwt)
                 .path("/api")
                 .maxAge(24 * 60 * 60)
-                .httpOnly(false)
-                .secure(false)
+                .httpOnly(true)
+                .secure(jwtCookieSecure)
+                .sameSite("Lax")
                 .build();
-        return cookie;
     }
 
     public ResponseCookie getCleanJwtCookie() {
-        ResponseCookie cookie = ResponseCookie.from(jwtCookie, null)
+        return ResponseCookie.from(jwtCookie, null)
                 .path("/api")
+                .httpOnly(true)
+                .secure(jwtCookieSecure)
+                .sameSite("Lax")
                 .build();
-        return cookie;
     }
 
     public String generateTokenFromUsername(String username) {
@@ -77,7 +77,7 @@ public class JwtUtils {
 
     public String getUserNameFromJwtToken(String token) {
         return Jwts.parser()
-                        .verifyWith((SecretKey) key())
+                .verifyWith((SecretKey) key())
                 .build().parseSignedClaims(token)
                 .getPayload().getSubject();
     }

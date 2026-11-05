@@ -1,100 +1,96 @@
 package com.ecommerce.project.service;
 
+// Connected to: Redis (Upstash), ProductRepository
+// Purpose: Fast-fail stock gate for flash sales, atomic reservation/rollback
+
+import com.ecommerce.project.model.Product;
+import com.ecommerce.project.repositories.ProductRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-/**
- * Redis Stock Gate Service (Coordinates Inventory between Redis and PostgreSQL).
- *
- * System Design Purpose:
- * In high-scale flash sales (e.g. Flipkart Big Billion Days), 100,000 requests/sec
- * hitting PostgreSQL directly causes connection pool exhaustion and database locks.
- *
- * This Redis Stock Gate acts as an in-memory protective shield:
- * 1. Synchronous atomic DECR in Redis: Decr happens in RAM in O(1) time.
- * 2. If Redis stock goes < 0: Fast-fail immediately in Redis! 0 PostgreSQL load!
- * 3. If Redis stock >= 0: Pass through to PostgreSQL to execute durable ACID commit.
- * 4. Compensation: If downstream PG or Stripe fails, atomic INCR in Redis restores the reservation.
- */
 @Service
 public class RedisStockGateService {
 
     private static final Logger log = LoggerFactory.getLogger(RedisStockGateService.class);
 
-    @Value("${upstash.redis.rest.url}")
+    @Value("${upstash.redis.rest.url:}")
     private String redisRestUrl;
 
-    @Value("${upstash.redis.rest.token}")
+    @Value("${upstash.redis.rest.token:}")
     private String redisRestToken;
+
+    @Autowired
+    private ProductRepository productRepository;
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /**
-     * Initializes hot product stock in Redis before the flash sale goes live.
-     */
     public void primeStock(Long productId, int initialStock) {
+        if (!configured()) {
+            return;
+        }
         try {
-            String url = redisRestUrl + "/set/stock:product:" + productId + "/" + initialStock;
-            executeRedisCommand(url, HttpMethod.POST);
-            log.info("Redis Gate: Primed product {} with stock = {}", productId, initialStock);
+            String url = redisRestUrl + "/set/stock:product:" + productId + "/" + initialStock + "/nx";
+            Long result = executeRedisCommand(url, HttpMethod.POST);
+            if (result == null) {
+                String overwrite = redisRestUrl + "/set/stock:product:" + productId + "/" + initialStock;
+                executeRedisCommand(overwrite, HttpMethod.POST);
+            }
         } catch (Exception e) {
-            log.warn("Redis Gate: Priming failed for product {}: {}", productId, e.getMessage());
+            log.warn("Redis prime failed for product {}: {}", productId, e.getMessage());
         }
     }
 
-    /**
-     * Attempts atomic stock reservation in Redis.
-     *
-     * @return true if reserved successfully in RAM, false if completely sold out
-     */
     public boolean tryReserveStock(Long productId, int qty) {
+        if (!configured()) {
+            return true;
+        }
         try {
-            // Atomic DECRBY in Redis
+            Integer current = getStock(productId);
+            if (current == null) {
+                int dbStock = productRepository.findById(productId).map(Product::getQuantity).orElse(0);
+                String setUrl = redisRestUrl + "/set/stock:product:" + productId + "/" + dbStock + "/nx";
+                executeRedisCommand(setUrl, HttpMethod.POST);
+            }
             String url = redisRestUrl + "/decrby/stock:product:" + productId + "/" + qty;
             Long remaining = executeRedisCommand(url, HttpMethod.POST);
-
             if (remaining == null) {
-                // If Redis key doesn't exist, allow pass-through to let PostgreSQL validate
                 return true;
             }
-
             if (remaining < 0) {
-                // Out of stock in RAM! Compensate back and reject immediately without touching PostgreSQL!
                 rollbackReservation(productId, qty);
                 return false;
             }
-
-            return true; // Successfully gated in Redis!
+            return true;
         } catch (Exception e) {
-            log.warn("Redis Gate: Failed to query Redis, failing open to PostgreSQL: {}", e.getMessage());
-            return true; // Graceful degradation: If Redis is unavailable, let DB handle via row locks
+            log.warn("Redis reserve failed, fail-open: {}", e.getMessage());
+            return true;
         }
     }
 
-    /**
-     * Compensating action: Restores stock in Redis if DB commit or Stripe payment fails downstream.
-     */
     public void rollbackReservation(Long productId, int qty) {
+        if (!configured()) {
+            return;
+        }
         try {
             String url = redisRestUrl + "/incrby/stock:product:" + productId + "/" + qty;
             executeRedisCommand(url, HttpMethod.POST);
-            log.info("Redis Gate: Compensated/restored {} units for product {}", qty, productId);
         } catch (Exception e) {
-            log.warn("Redis Gate: Rollback failed for product {}: {}", productId, e.getMessage());
+            log.warn("Redis rollback failed for product {}: {}", productId, e.getMessage());
         }
     }
 
-    /**
-     * Checks current stock in Redis without mutating.
-     */
     public Integer getStock(Long productId) {
+        if (!configured()) {
+            return null;
+        }
         try {
             String url = redisRestUrl + "/get/stock:product:" + productId;
             Long val = executeRedisCommand(url, HttpMethod.GET);
@@ -104,11 +100,14 @@ public class RedisStockGateService {
         }
     }
 
+    private boolean configured() {
+        return redisRestUrl != null && !redisRestUrl.isBlank() && redisRestToken != null && !redisRestToken.isBlank();
+    }
+
     private Long executeRedisCommand(String url, HttpMethod method) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + redisRestToken);
         HttpEntity<String> entity = new HttpEntity<>(headers);
-
         ResponseEntity<String> response = restTemplate.exchange(url, method, entity, String.class);
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
             try {
@@ -127,4 +126,3 @@ public class RedisStockGateService {
         return null;
     }
 }
-

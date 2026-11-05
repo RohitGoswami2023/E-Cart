@@ -23,42 +23,45 @@ public class AddressController {
     AddressService addressService;
 
     @PostMapping("/addresses")
-    public ResponseEntity<AddressDTO> createAddress(@Valid @RequestBody AddressDTO addressDTO){
+    public ResponseEntity<AddressDTO> createAddress(@Valid @RequestBody AddressDTO addressDTO) {
         User user = authUtil.loggedInUser();
         AddressDTO savedAddressDTO = addressService.createAddress(addressDTO, user);
         return new ResponseEntity<>(savedAddressDTO, HttpStatus.CREATED);
     }
 
     @GetMapping("/addresses")
-    public ResponseEntity<List<AddressDTO>> getAddresses(){
-        List<AddressDTO> addressList = addressService.getAddresses();
+    public ResponseEntity<List<AddressDTO>> getAddresses() {
+        User user = authUtil.loggedInUser();
+        List<AddressDTO> addressList = addressService.getUserAddresses(user);
         return new ResponseEntity<>(addressList, HttpStatus.OK);
     }
 
     @GetMapping("/addresses/{addressId}")
-    public ResponseEntity<AddressDTO> getAddressById(@PathVariable Long addressId){
-        AddressDTO addressDTO = addressService.getAddressesById(addressId);
+    public ResponseEntity<AddressDTO> getAddressById(@PathVariable Long addressId) {
+        User user = authUtil.loggedInUser();
+        AddressDTO addressDTO = addressService.getAddressesById(addressId, user);
         return new ResponseEntity<>(addressDTO, HttpStatus.OK);
     }
 
-
     @GetMapping("/users/addresses")
-    public ResponseEntity<List<AddressDTO>> getUserAddresses(){
+    public ResponseEntity<List<AddressDTO>> getUserAddresses() {
         User user = authUtil.loggedInUser();
         List<AddressDTO> addressList = addressService.getUserAddresses(user);
         return new ResponseEntity<>(addressList, HttpStatus.OK);
     }
 
     @PutMapping("/addresses/{addressId}")
-    public ResponseEntity<AddressDTO> updateAddress(@PathVariable Long addressId
-            , @RequestBody AddressDTO addressDTO){
-        AddressDTO updatedAddress = addressService.updateAddress(addressId, addressDTO);
+    public ResponseEntity<AddressDTO> updateAddress(@PathVariable Long addressId,
+                                                    @Valid @RequestBody AddressDTO addressDTO) {
+        User user = authUtil.loggedInUser();
+        AddressDTO updatedAddress = addressService.updateAddress(addressId, addressDTO, user);
         return new ResponseEntity<>(updatedAddress, HttpStatus.OK);
     }
 
     @DeleteMapping("/addresses/{addressId}")
-    public ResponseEntity<String> updateAddress(@PathVariable Long addressId){
-        String status = addressService.deleteAddress(addressId);
+    public ResponseEntity<String> deleteAddress(@PathVariable Long addressId) {
+        User user = authUtil.loggedInUser();
+        String status = addressService.deleteAddress(addressId, user);
         return new ResponseEntity<>(status, HttpStatus.OK);
     }
 }
