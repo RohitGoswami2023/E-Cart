@@ -24,3 +24,7 @@ application-test.properties
 # Backend data
 /backend/data
 /hf-dataset/
+
+# Local docs / private runbooks
+docs/commands.md
+
