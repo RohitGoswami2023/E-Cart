@@ -1,3 +1,22 @@
+/**
+ * Distributed Saga Pattern Stepper Component
+ *
+ * Why & Where it is used:
+ *   Interactive step-by-step walkthrough explaining the 6-stage distributed checkout saga:
+ *   cart validation, atomic reservation, local order commitment, Stripe PaymentIntent dispatch,
+ *   confirmation, and compensating rollback on downstream payment failure.
+ *
+ * Imports & Key Dependencies:
+ *   - React: useState.
+ *   - Data: sagaSteps from `../data/evidence`.
+ *
+ * Exports & Consumers:
+ *   - App.jsx: Embedded in the `<section id="saga">` section.
+ *
+ * Project Impact:
+ *   Clarifies how the system coordinates state across distributed database and payment boundaries.
+ */
+
 import { useState } from 'react';
 import { sagaSteps } from '../data/evidence';
 

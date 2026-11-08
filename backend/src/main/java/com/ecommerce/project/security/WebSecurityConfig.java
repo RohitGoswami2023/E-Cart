@@ -1,7 +1,24 @@
 package com.ecommerce.project.security;
 
-// Connected to: AuthTokenFilter, JwtUtils, UserDetailsServiceImpl, AuthServiceImpl
-// Purpose: Spring Security config, URL authorization rules, method security, role seeding
+/**
+ * Spring Security Configuration
+ *
+ * Why & Where it is used:
+ *   Configures the core security filter chain for the entire Spring Boot backend: HTTP authorization rules,
+ *   stateless JWT token filters, CORS, frame options, and initial role seeding in the database.
+ *
+ * Imports & Key Dependencies:
+ *   - Security Filter Components: AuthTokenFilter (JWT extraction), AuthEntryPointJwt (401 handler).
+ *   - Authentication: UserDetailsServiceImpl, DaoAuthenticationProvider, BCryptPasswordEncoder.
+ *   - Repositories: RoleRepository, UserRepository for initial role bootstrapping.
+ *
+ * Exports & Consumers:
+ *   - Spring Security Filter Chain: Governs every incoming HTTP request across all controllers.
+ *
+ * Project Impact:
+ *   The security bedrock of the project. Enforces strict role-based access control (ROLE_ADMIN,
+ *   ROLE_SELLER, ROLE_USER) and protects private resources from unauthorized access or IDOR attacks.
+ */
 
 import com.ecommerce.project.model.AppRole;
 import com.ecommerce.project.model.Role;

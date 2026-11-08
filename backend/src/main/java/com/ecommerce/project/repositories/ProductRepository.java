@@ -1,5 +1,26 @@
 package com.ecommerce.project.repositories;
 
+/**
+ * Product Spring Data JPA Repository
+ *
+ * Why & Where it is used:
+ *   Handles database operations for product catalog inventory in PostgreSQL table `products`.
+ *   Contains the critical atomic conditional UPDATE query that guarantees zero overselling during flash sales.
+ *
+ * Imports & Key Dependencies:
+ *   - Domain Models: Product, Category, User.
+ *   - Spring Data JPA: JpaRepository, JpaSpecificationExecutor (for dynamic multi-column searches), @Modifying, @Query.
+ *
+ * Exports & Consumers:
+ *   - ProductServiceImpl: Catalog queries, pagination, and keyword search execution.
+ *   - OrderServiceImpl: Invokes decrementStockSafely during checkout to atomically claim units.
+ *   - FlashSaleConcurrencyTest: The exact query tested under 64 concurrent threads.
+ *
+ * Project Impact:
+ *   Foundational to the portfolio's core claim: moves stock checks inside the SQL statement (`quantity >= :qty`)
+ *   to eliminate race conditions and avoid lost updates without table-level locking bottlenecks.
+ */
+
 import com.ecommerce.project.model.Category;
 import com.ecommerce.project.model.Product;
 import com.ecommerce.project.model.User;

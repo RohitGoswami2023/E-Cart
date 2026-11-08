@@ -1,5 +1,25 @@
 package com.ecommerce.project.service;
 
+/**
+ * File Asset Service Implementation
+ *
+ * Why & Where it is used:
+ *   Handles product image file uploads with strict security hardening: MIME-type allowlists,
+ *   magic byte header inspection (preventing HTML/SVG stored XSS), size limits (2MB), and UUID file renaming.
+ *
+ * Imports & Key Dependencies:
+ *   - Exceptions: APIException for rejected file types or oversized payloads.
+ *   - Java IO/NIO: Files, Paths, InputStream for magic byte detection.
+ *   - Spring Web: MultipartFile.
+ *
+ * Exports & Consumers:
+ *   - ProductServiceImpl: Called during product creation or image asset updating.
+ *
+ * Project Impact:
+ *   Neutralizes stored Cross-Site Scripting (XSS) and remote shell upload vulnerabilities by verifying
+ *   true file magic bytes (JPEG, PNG, GIF, WebP) rather than trusting client-provided file extensions.
+ */
+
 import com.ecommerce.project.exceptions.APIException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;

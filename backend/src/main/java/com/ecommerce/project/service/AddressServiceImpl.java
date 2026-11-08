@@ -1,7 +1,25 @@
 package com.ecommerce.project.service;
 
-// Connected to: AddressRepository
-// Purpose: Address CRUD with ownership checks (404 for non-owner)
+/**
+ * Address Service Implementation
+ *
+ * Why & Where it is used:
+ *   Handles customer shipping address CRUD operations and enforces user ownership checks
+ *   to eliminate Insecure Direct Object Reference (IDOR) vulnerabilities.
+ *
+ * Imports & Key Dependencies:
+ *   - Domain Models: Address, User.
+ *   - Repositories: AddressRepository, UserRepository.
+ *   - Utilities: ModelMapper for DTO/Entity transformations.
+ *
+ * Exports & Consumers:
+ *   - AddressController: Invoked when users add, view, update, or remove delivery destinations.
+ *   - OrderService: Queries saved addresses when associating shipping destinations with orders.
+ *
+ * Project Impact:
+ *   Guarantees address data privacy across multi-tenant user accounts by ensuring no user can read
+ *   or mutate another user's delivery addresses, throwing ResourceNotFoundException on unauthorized attempts.
+ */
 
 import com.ecommerce.project.exceptions.ResourceNotFoundException;
 import com.ecommerce.project.model.Address;

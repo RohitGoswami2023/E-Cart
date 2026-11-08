@@ -1,7 +1,25 @@
 package com.ecommerce.project.controller;
 
-// Connected to: PaymentRepository, OrderRepository, ProductRepository, RedisStockGateService, ProcessedStripeEventRepository
-// Purpose: Stripe webhook handling for payment_intent.succeeded/failed events with stock compensation and deduplication
+/**
+ * Stripe Webhook Controller
+ *
+ * Why & Where it is used:
+ *   Asynchronously processes server-to-server lifecycle events dispatched by Stripe
+ *   (e.g., `payment_intent.succeeded`, `payment_intent.payment_failed`).
+ *
+ * Imports & Key Dependencies:
+ *   - Stripe SDK: Webhook HMAC signature verification and Event deserialization.
+ *   - Persistence: ProcessedStripeEventRepository (idempotency ledger to reject duplicate replays).
+ *   - Repositories & Services: OrderRepository, PaymentRepository, ProductRepository, RedisStockGateService.
+ *
+ * Exports & Consumers:
+ *   - Directly called by Stripe cloud infrastructure over public HTTPS.
+ *   - Triggers downstream status state machines on Order and inventory restoration on failure.
+ *
+ * Project Impact:
+ *   Critical for high-reliability checkout. Guarantees that dropped browser connections or client
+ *   crashes do not leave orders in limbo or leave stock incorrectly depleted on failed payments.
+ */
 
 import com.ecommerce.project.model.Order;
 import com.ecommerce.project.model.OrderItem;

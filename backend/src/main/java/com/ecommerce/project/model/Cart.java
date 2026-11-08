@@ -1,5 +1,23 @@
 package com.ecommerce.project.model;
 
+/**
+ * Cart Domain Entity
+ *
+ * Why & Where it is used:
+ *   Represents a customer's active shopping basket in PostgreSQL table `carts`.
+ *   Maintains a 1-to-1 relationship with the owner User and 1-to-many relationship with CartItem lines.
+ *
+ * Imports & Key Dependencies:
+ *   - Jakarta Persistence: @Entity, @Table, @OneToOne, @OneToMany with orphanRemoval = true.
+ *   - Lombok: @Data, @NoArgsConstructor, @AllArgsConstructor.
+ *
+ * Exports & Consumers:
+ *   - CartRepository, CartServiceImpl, OrderServiceImpl.
+ *
+ * Project Impact:
+ *   Stores customer cart state across sessions and enables transactional cart emptying upon purchase.
+ */
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;

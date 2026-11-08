@@ -1,5 +1,26 @@
 package com.ecommerce.project.concurrency;
 
+/**
+ * Flash Sale Concurrency Integration Test
+ *
+ * Why & Where it is used:
+ *   Stress-tests the atomic conditional UPDATE logic (`quantity = quantity - :qty WHERE quantity >= :qty`)
+ *   under high-concurrency multi-threaded execution (e.g. 50 parallel buyers competing for 10 units).
+ *
+ * Imports & Key Dependencies:
+ *   - Repositories: ProductRepository (executes decrementStockSafely).
+ *   - Concurrency Utilities: CountDownLatch (simultaneous thread release), ExecutorService, AtomicInteger.
+ *   - Spring Transaction: PlatformTransactionManager, TransactionTemplate.
+ *
+ * Exports & Consumers:
+ *   - Executed via `mvnw test "-Dtest=FlashSaleConcurrencyTest"`.
+ *   - Proves zero overselling guarantee for the portfolio presentation.
+ *
+ * Project Impact:
+ *   Provides empirical verification that under intense contention, exactly 10 requests succeed, 40 fail,
+ *   and the final inventory balance settles at exactly 0 (never negative).
+ */
+
 import com.ecommerce.project.benchmark.BenchmarkReport;
 import com.ecommerce.project.model.Product;
 import com.ecommerce.project.repositories.ProductRepository;

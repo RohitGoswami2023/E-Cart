@@ -1,5 +1,25 @@
 package com.ecommerce.project.service;
 
+/**
+ * Category Service Implementation
+ *
+ * Why & Where it is used:
+ *   Handles category operations: pagination, duplicate name checks, model mapping,
+ *   and relational validation against CategoryRepository.
+ *
+ * Imports & Key Dependencies:
+ *   - Domain: Category entity.
+ *   - Repositories: CategoryRepository (database querying, uniqueness checks).
+ *   - Payloads: CategoryDTO, CategoryResponse.
+ *   - Exceptions: APIException (duplicate category name), ResourceNotFoundException.
+ *
+ * Exports & Consumers:
+ *   - CategoryController: Invoked on public viewing and administrative category mutations.
+ *
+ * Project Impact:
+ *   Ensures unique category names and provides clean paginated taxonomy data to frontend clients.
+ */
+
 import com.ecommerce.project.exceptions.APIException;
 import com.ecommerce.project.exceptions.ResourceNotFoundException;
 import com.ecommerce.project.model.Category;

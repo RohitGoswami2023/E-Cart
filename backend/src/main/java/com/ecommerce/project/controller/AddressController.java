@@ -1,5 +1,24 @@
 package com.ecommerce.project.controller;
 
+/**
+ * Address REST Controller
+ *
+ * Why & Where it is used:
+ *   Exposes REST endpoints for authenticated customer shipping address management
+ *   (creating new addresses, fetching saved addresses, updating records, and deleting old ones).
+ *
+ * Imports & Key Dependencies:
+ *   - Service: AddressService (executes CRUD and verifies user ownership).
+ *   - Security: AuthUtil (resolves currently logged-in User entity).
+ *   - Payloads: AddressDTO with Jakarta validation annotations.
+ *
+ * Exports & Consumers:
+ *   - Frontend Checkout & Profile: Consumed during checkout destination selection and profile management.
+ *
+ * Project Impact:
+ *   Ensures customers can only manage their own physical address records and prevents cross-user leakage.
+ */
+
 import com.ecommerce.project.model.User;
 import com.ecommerce.project.payload.AddressDTO;
 import com.ecommerce.project.service.AddressService;

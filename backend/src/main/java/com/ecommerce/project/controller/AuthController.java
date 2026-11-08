@@ -1,5 +1,25 @@
 package com.ecommerce.project.controller;
 
+/**
+ * Authentication REST Controller
+ *
+ * Why & Where it is used:
+ *   Handles customer and vendor identity operations: registration, credential validation,
+ *   secure JWT cookie distribution, active session introspection, and logout invalidation.
+ *
+ * Imports & Key Dependencies:
+ *   - Service: AuthService (orchestrates Spring AuthenticationManager and JWT token creation).
+ *   - Requests/Responses: LoginRequest, SignupRequest, AuthenticationResult, MessageResponse.
+ *   - Security: Spring Security context and HttpHeaders for Set-Cookie header delivery.
+ *
+ * Exports & Consumers:
+ *   - Frontend Authentication components (Login modal, Register forms, session providers).
+ *
+ * Project Impact:
+ *   The primary security perimeter for the web API. Issues HTTP-only, SameSite-protected JWT cookies
+ *   to guard against Cross-Site Scripting (XSS) credential theft.
+ */
+
 import com.ecommerce.project.config.AppConstants;
 import com.ecommerce.project.payload.AuthenticationResult;
 import com.ecommerce.project.security.request.LoginRequest;

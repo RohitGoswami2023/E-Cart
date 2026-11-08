@@ -1,4 +1,21 @@
-// Every number here is traceable to a file in the repo. Edit here, nowhere else.
+/**
+ * Empirical Evidence & Benchmark Dataset Constants
+ *
+ * Why & Where it is used:
+ *   Centralized source of truth for benchmark claims, endpoint maps, and empirical metrics
+ *   referenced throughout the frontend dashboard and technical documentation.
+ *
+ * Imports & Key Dependencies:
+ *   - Pure constant definitions. Every metric links to a test class or runbook file.
+ *
+ * Exports & Consumers:
+ *   - App.jsx: Renders flash sale numbers, throughput comparisons, saga steps, endpoint tables, and known limitations.
+ *   - Saga.jsx: Consumes sagaSteps for the interactive flow.
+ *
+ * Project Impact:
+ *   Guarantees consistency between documentation claims and the UI presentation.
+ */
+
 export const flashSale = {
   source: 'docs/flash-sale-and-saga-benchmark.md · BbdFlashSaleSimulationTest',
   rows: [

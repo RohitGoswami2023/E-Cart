@@ -1,7 +1,25 @@
 package com.ecommerce.project.controller;
 
-// Connected to: ProductService, FileService, ProductRepository
-// Purpose: Product CRUD, search, image upload with ownership checks
+/**
+ * Product REST Controller
+ *
+ * Why & Where it is used:
+ *   Exposes endpoints for catalog browsing (public), product search by keywords/categories,
+ *   product lifecycle management (admin/seller), and product image asset uploads.
+ *
+ * Imports & Key Dependencies:
+ *   - Service: ProductService (delegates querying, caching, indexing, and ownership-aware updates).
+ *   - Validation: Jakarta @Valid on inbound ProductDTO payloads.
+ *   - Configurations: AppConstants (pagination caps, default sort orders).
+ *
+ * Exports & Consumers:
+ *   - Public storefront catalog view, category filtering tabs, and full-text keyword search bars.
+ *   - Seller product listing dashboards and catalog inventory management UI.
+ *
+ * Project Impact:
+ *   Acts as the central catalog gateway. Ensures input sanitation, pagination boundary safety
+ *   (capping page sizes to 100), and ownership verification before allowing modifications.
+ */
 
 import com.ecommerce.project.config.AppConstants;
 import com.ecommerce.project.payload.ProductDTO;

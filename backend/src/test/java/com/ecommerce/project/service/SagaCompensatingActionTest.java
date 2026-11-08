@@ -1,5 +1,27 @@
 package com.ecommerce.project.service;
 
+/**
+ * Saga Compensating Action Integration Test
+ *
+ * Why & Where it is used:
+ *   Validates distributed compensating transactions under failure conditions:
+ *   1) Restoring decremented inventory when downstream payment fails.
+ *   2) Triggering an automated Stripe refund when local database operations fail post-payment.
+ *
+ * Imports & Key Dependencies:
+ *   - Services: OrderService, FakeStripeService (configured via FakeStripeTestConfig).
+ *   - Repositories: ProductRepository, CartRepository, CartItemRepository, UserRepository, AddressRepository.
+ *   - Benchmark: BenchmarkReport (records execution durations and stock conservation metrics).
+ *
+ * Exports & Consumers:
+ *   - Executed via `mvnw test "-Dtest=SagaCompensatingActionTest"`.
+ *   - Exports evidence metrics directly into `benchmark-report.json`.
+ *
+ * Project Impact:
+ *   Guarantees that database rollback and remote payment gateway actions remain eventually consistent,
+ *   proving that neither customer money nor merchant stock is leaked during system partial failures.
+ */
+
 import com.ecommerce.project.benchmark.BenchmarkReport;
 import com.ecommerce.project.exceptions.APIException;
 import com.ecommerce.project.model.*;

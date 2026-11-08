@@ -1,3 +1,21 @@
+/**
+ * Race Condition Interactive Simulation Component
+ *
+ * Why & Where it is used:
+ *   Provides an interactive visual demonstration contrasting naive "read-then-write" application logic
+ *   against "atomic conditional updates" (PostgreSQL row-level locking).
+ *
+ * Imports & Key Dependencies:
+ *   - React: useState.
+ *
+ * Exports & Consumers:
+ *   - App.jsx: Embedded in the `<section id="race">` section of the technical dashboard.
+ *
+ * Project Impact:
+ *   Visually explains to technical interviewers why naive inventory checks cause lost updates
+ *   and why the project’s SQL conditional update solves overselling definitively.
+ */
+
 import { useState } from 'react';
 
 // Deterministic simulation of the two code paths. Real proof: FlashSaleConcurrencyTest.

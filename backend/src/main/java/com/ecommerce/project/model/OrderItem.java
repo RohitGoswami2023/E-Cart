@@ -1,5 +1,23 @@
 package com.ecommerce.project.model;
 
+/**
+ * OrderItem Domain Entity
+ *
+ * Why & Where it is used:
+ *   Represents an immutable snapshot of a purchased product inside an order in table `order_items`.
+ *   Captures the exact ordered product price and discount at purchase time to protect against future price changes.
+ *
+ * Imports & Key Dependencies:
+ *   - Jakarta Persistence: @Entity, @Table, @ManyToOne relationships to Product and Order.
+ *   - Lombok: @Data, @NoArgsConstructor, @AllArgsConstructor.
+ *
+ * Exports & Consumers:
+ *   - OrderItemRepository, OrderServiceImpl, OrderResponse payloads.
+ *
+ * Project Impact:
+ *   Preserves historical purchase integrity: changes to a catalog product's price never alter past completed order records.
+ */
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;

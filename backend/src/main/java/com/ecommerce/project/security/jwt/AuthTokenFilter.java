@@ -1,5 +1,25 @@
 package com.ecommerce.project.security.jwt;
 
+/**
+ * JWT Authentication Filter
+ *
+ * Why & Where it is used:
+ *   An HTTP request interceptor executing once per request. It checks incoming HTTP cookies for a valid
+ *   JWT token, parses the authenticated user principal, and sets the Spring SecurityContextHolder.
+ *
+ * Imports & Key Dependencies:
+ *   - Security Utilities: JwtUtils (cookie extraction & cryptographic signature validation).
+ *   - Service: UserDetailsServiceImpl (loads UserDetailsImpl record by username).
+ *   - Spring Security: OncePerRequestFilter, UsernamePasswordAuthenticationToken, SecurityContextHolder.
+ *
+ * Exports & Consumers:
+ *   - WebSecurityConfig: Placed before UsernamePasswordAuthenticationFilter in the security filter chain.
+ *
+ * Project Impact:
+ *   Establishes the stateless security identity for all authenticated endpoints, enabling downstream
+ *   controllers and services to reliably identify the active caller via AuthUtil or SecurityContextHolder.
+ */
+
 import com.ecommerce.project.security.services.UserDetailsServiceImpl;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

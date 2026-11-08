@@ -1,7 +1,25 @@
 package com.ecommerce.project.controller;
 
-// Connected to: OrderService, StripeService, CartRepository
-// Purpose: Order placement, retrieval, status updates for users/admins/sellers
+/**
+ * Order REST Controller
+ *
+ * Why & Where it is used:
+ *   Handles customer order submissions, Stripe client-secret provisioning, and role-based
+ *   order lifecycle tracking (customer history, seller order views, and admin order management).
+ *
+ * Imports & Key Dependencies:
+ *   - Services: OrderService (placement logic, saga compensation), StripeService (PaymentIntent creation).
+ *   - Data Access: CartRepository (cart total pre-validation).
+ *   - Security: AuthUtil (extracts authenticated principal email from JWT cookie/context).
+ *
+ * Exports & Consumers:
+ *   - Frontend Checkout flows (React `Saga.jsx`, checkout pages).
+ *   - Admin and Seller backoffice management panels.
+ *
+ * Project Impact:
+ *   Serves as the primary transaction entry point for monetization. Guarantees that clients
+ *   cannot bypass payment verification or manipulate line items during order finalization.
+ */
 
 import com.ecommerce.project.config.AppConstants;
 import com.ecommerce.project.exceptions.APIException;

@@ -1,5 +1,25 @@
 package com.ecommerce.project.security.jwt;
 
+/**
+ * JWT Authentication Entry Point
+ *
+ * Why & Where it is used:
+ *   Acts as the custom failure handler invoked by Spring Security whenever an unauthenticated
+ *   client attempts to access a protected API resource.
+ *
+ * Imports & Key Dependencies:
+ *   - Jackson: ObjectMapper (formats standardized JSON error responses).
+ *   - Servlet API: HttpServletRequest, HttpServletResponse.
+ *   - Spring Security: AuthenticationEntryPoint, AuthenticationException.
+ *
+ * Exports & Consumers:
+ *   - WebSecurityConfig: Registered via `.exceptionHandling(exception -> exception.authenticationEntryPoint(...))`.
+ *
+ * Project Impact:
+ *   Prevents Spring Security from returning raw HTML login pages or generic container error pages,
+ *   returning clean, machine-readable HTTP 401 JSON error bodies to frontend consumers.
+ */
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

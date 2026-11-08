@@ -1,5 +1,27 @@
 package com.ecommerce.project.service;
 
+/**
+ * Product Catalog Service Implementation
+ *
+ * Why & Where it is used:
+ *   Handles catalog query execution, SQL LIKE wildcard escaping (defending against wildcard injection),
+ *   sort field allowlist validation, price calculations, seller authorization verification, and image upload orchestration.
+ *
+ * Imports & Key Dependencies:
+ *   - Domain Models: Product, Category, User, Cart.
+ *   - Repositories: ProductRepository, CategoryRepository, CartRepository.
+ *   - Services: FileService (image upload and storage).
+ *   - Utilities: AuthUtil (resolves authenticated seller), ModelMapper.
+ *   - Exceptions: APIException, ResourceNotFoundException.
+ *
+ * Exports & Consumers:
+ *   - ProductController: Handles customer product browsing, searches, and seller catalog operations.
+ *
+ * Project Impact:
+ *   Protects catalog data integrity by verifying that sellers can only modify their own merchandise,
+ *   caps pagination parameters to prevent DoS attacks, and sanitizes search patterns.
+ */
+
 import com.ecommerce.project.exceptions.APIException;
 import com.ecommerce.project.exceptions.ResourceNotFoundException;
 import com.ecommerce.project.model.AppRole;

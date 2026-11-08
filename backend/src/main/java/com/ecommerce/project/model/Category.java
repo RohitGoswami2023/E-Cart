@@ -1,5 +1,24 @@
 package com.ecommerce.project.model;
 
+/**
+ * Category Domain Entity
+ *
+ * Why & Where it is used:
+ *   Represents a product taxonomy category in PostgreSQL table `categories`.
+ *   Maintains a 1-to-many relationship with catalog products.
+ *
+ * Imports & Key Dependencies:
+ *   - Jakarta Persistence: @Entity, @Id, @GeneratedValue, @OneToMany.
+ *   - Jakarta Validation: @NotBlank, @Size.
+ *   - Lombok: @Data, @NoArgsConstructor, @AllArgsConstructor.
+ *
+ * Exports & Consumers:
+ *   - CategoryRepository, CategoryServiceImpl, ProductServiceImpl.
+ *
+ * Project Impact:
+ *   Structures and classifies the eCommerce merchandise catalog for store navigation.
+ */
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

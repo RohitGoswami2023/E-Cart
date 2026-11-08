@@ -1,7 +1,25 @@
 package com.ecommerce.project.service;
 
-// Connected to: Stripe API
-// Purpose: PaymentIntent creation with idempotency, customer search/create
+/**
+ * Stripe Payment Gateway Service Implementation
+ *
+ * Why & Where it is used:
+ *   Handles cloud interactions with Stripe's payments infrastructure: customer entity provisioning,
+ *   PaymentIntent creation with strict idempotency keys, and automated compensation refunds.
+ *
+ * Imports & Key Dependencies:
+ *   - Stripe Java SDK: PaymentIntent, Customer, Refund, RequestOptions.
+ *   - Repositories: UserRepository (caches stripeCustomerId directly on the User entity).
+ *   - Payloads: StripePaymentDto (contains amount, currency, address, and metadata).
+ *
+ * Exports & Consumers:
+ *   - OrderController: Generates client secrets for frontend Stripe Elements checkout.
+ *   - OrderServiceImpl: Validates payment statuses and triggers compensating refunds if local writes fail.
+ *
+ * Project Impact:
+ *   Enforces monetary correctness. Attaches unique idempotency keys to ensure network retries never
+ *   result in duplicate customer charges, and maintains customer profiles for dispute tracing.
+ */
 
 import com.ecommerce.project.payload.StripePaymentDto;
 import com.ecommerce.project.repositories.UserRepository;

@@ -1,5 +1,25 @@
 package com.ecommerce.project.controller;
 
+/**
+ * Shopping Cart REST Controller
+ *
+ * Why & Where it is used:
+ *   Handles customer shopping cart operations: inspecting personal cart contents, adding product
+ *   line items, adjusting quantities, and deleting items.
+ *
+ * Imports & Key Dependencies:
+ *   - Service: CartService (executes cart state changes and price calculations).
+ *   - Security: AuthUtil (binds cart operations to the caller's verified account).
+ *   - Validation: Jakarta @Min(1) constraints to block negative quantity exploits.
+ *
+ * Exports & Consumers:
+ *   - Frontend Cart Drawer, Mini-Cart counters, and Checkout summary views.
+ *
+ * Project Impact:
+ *   Validates quantities at the controller boundary and stops inventory attacks where negative
+ *   quantities could artificially inflate cart credit balances.
+ */
+
 import com.ecommerce.project.model.Cart;
 import com.ecommerce.project.payload.CartDTO;
 import com.ecommerce.project.payload.CartItemDTO;

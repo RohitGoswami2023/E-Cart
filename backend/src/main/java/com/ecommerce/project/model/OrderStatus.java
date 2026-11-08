@@ -1,5 +1,25 @@
 package com.ecommerce.project.model;
 
+/**
+ * Order Status Lifecycle Enumeration & State Machine
+ *
+ * Why & Where it is used:
+ *   Models valid lifecycle stages for customer purchases: PENDING, ORDER_CONFIRMED,
+ *   SHIPPED, DELIVERED, CANCELLED, and PAYMENT_FAILED.
+ *   Enforces strict directional state transition rules via `canTransitionTo(...)`.
+ *
+ * Imports & Key Dependencies:
+ *   - Standalone enum.
+ *
+ * Exports & Consumers:
+ *   - OrderServiceImpl: Enforces valid state progression (e.g. delivered orders cannot be cancelled).
+ *   - StripeWebhookController: Drives transitions on webhook callbacks.
+ *
+ * Project Impact:
+ *   Prevents illegal status mutations (e.g., reverting a cancelled order or moving delivered items back to pending),
+ *   protecting inventory restock triggers and accounting integrity.
+ */
+
 public enum OrderStatus {
     PENDING("Pending"),
     ORDER_CONFIRMED("Order Confirmed"),

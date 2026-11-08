@@ -1,5 +1,26 @@
 package com.ecommerce.project.security.services;
 
+/**
+ * UserDetails Principal Implementation
+ *
+ * Why & Where it is used:
+ *   Wraps domain User entities into Spring Security's standard UserDetails contract,
+ *   converting AppRole enums into SimpleGrantedAuthority lists for authorization evaluation.
+ *
+ * Imports & Key Dependencies:
+ *   - Spring Security: UserDetails, GrantedAuthority, SimpleGrantedAuthority.
+ *   - Domain: User entity.
+ *   - Jackson: @JsonIgnore on password to prevent credential leakage during serialization.
+ *
+ * Exports & Consumers:
+ *   - AuthTokenFilter & SecurityContextHolder: Stored as the authenticated principal.
+ *   - AuthUtil: Unwrapped to retrieve the current user's database ID or email address.
+ *
+ * Project Impact:
+ *   Enables method-level and URL-level security evaluations (@PreAuthorize, requestMatchers)
+ *   by standardizing the authorities and principal attributes.
+ */
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;

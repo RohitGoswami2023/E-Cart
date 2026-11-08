@@ -1,5 +1,24 @@
 package com.ecommerce.project.model;
 
+/**
+ * Address Domain Entity
+ *
+ * Why & Where it is used:
+ *   Represents a physical shipping and billing address associated with a user in PostgreSQL table `addresses`.
+ *
+ * Imports & Key Dependencies:
+ *   - Jakarta Persistence: @Entity, @Table, @Id, @GeneratedValue, @ManyToOne, @JoinColumn.
+ *   - Jakarta Validation: @NotBlank, @Size constraints.
+ *   - Lombok: @Data, @NoArgsConstructor, @AllArgsConstructor.
+ *
+ * Exports & Consumers:
+ *   - AddressRepository, AddressServiceImpl, AddressController.
+ *   - Order: Referenced as the shipping destination for completed purchases.
+ *
+ * Project Impact:
+ *   Ensures structured address storage with field-level length validations (street, city, pincode).
+ */
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

@@ -1,5 +1,23 @@
 package com.ecommerce.project.model;
 
+/**
+ * CartItem Domain Entity
+ *
+ * Why & Where it is used:
+ *   Represents an individual line item inside a customer's shopping cart in table `cart_items`.
+ *   Stores quantity, discount, and product price snapshot.
+ *
+ * Imports & Key Dependencies:
+ *   - Jakarta Persistence: @Entity, @Table, @ManyToOne relationships to Cart and Product.
+ *   - Lombok: @Data, @NoArgsConstructor, @AllArgsConstructor.
+ *
+ * Exports & Consumers:
+ *   - CartItemRepository, CartServiceImpl, OrderServiceImpl.
+ *
+ * Project Impact:
+ *   Links specific catalog products and desired purchase quantities to a customer's cart.
+ */
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;

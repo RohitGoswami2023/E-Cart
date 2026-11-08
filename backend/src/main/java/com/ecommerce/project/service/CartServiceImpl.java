@@ -1,7 +1,25 @@
 package com.ecommerce.project.service;
 
-// Connected to: CartRepository, CartItemRepository, ProductRepository
-// Purpose: Cart CRUD with ownership checks, stock validation, item increment
+/**
+ * Cart Service Implementation
+ *
+ * Why & Where it is used:
+ *   Manages shopping basket operations: adding items, modifying line item quantities, recalculating
+ *   cart totals based on current product pricing, and clearing carts on order checkout.
+ *
+ * Imports & Key Dependencies:
+ *   - Repositories: CartRepository, CartItemRepository, ProductRepository.
+ *   - Security: AuthUtil (binds cart operations strictly to the authenticated user).
+ *   - Exceptions: APIException (e.g. stock limitations), ResourceNotFoundException.
+ *
+ * Exports & Consumers:
+ *   - CartController: Serves client cart requests.
+ *   - OrderServiceImpl: Reads and empties items upon confirmed purchase.
+ *
+ * Project Impact:
+ *   Enforces live price recalculation and bounds checking against live catalog inventory,
+ *   preventing client tampering with cart item pricing or adding out-of-stock items.
+ */
 
 import com.ecommerce.project.exceptions.APIException;
 import com.ecommerce.project.exceptions.ResourceNotFoundException;

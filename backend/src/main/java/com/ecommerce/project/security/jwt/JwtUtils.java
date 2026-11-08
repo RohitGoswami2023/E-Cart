@@ -1,5 +1,26 @@
 package com.ecommerce.project.security.jwt;
 
+/**
+ * JWT Utility Component
+ *
+ * Why & Where it is used:
+ *   Encapsulates all cryptographic token operations: signing JWTs using HMAC-SHA secrets,
+ *   extracting claims, validating token expiration/tampering, and generating secure HTTP-only cookies.
+ *
+ * Imports & Key Dependencies:
+ *   - JJWT Library: Jwts, Claims, Keys, SignatureAlgorithm.
+ *   - Servlet WebUtils: WebUtils.getCookie for cookie extraction from HttpServletRequest.
+ *   - Spring Web: ResponseCookie for assembling Set-Cookie HTTP headers with SameSite/Path controls.
+ *
+ * Exports & Consumers:
+ *   - AuthServiceImpl: Generates login cookies on authentication.
+ *   - AuthTokenFilter: Validates incoming request cookies on every API call.
+ *
+ * Project Impact:
+ *   Guarantees cryptographic integrity of user identity and role claims across stateless HTTP requests,
+ *   aligning cookie max-age with token expiration and ensuring clean cookie clearing upon signout.
+ */
+
 import com.ecommerce.project.security.services.UserDetailsImpl;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;

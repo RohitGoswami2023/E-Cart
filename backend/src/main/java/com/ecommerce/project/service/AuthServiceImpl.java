@@ -1,7 +1,25 @@
 package com.ecommerce.project.service;
 
-// Connected to: UserRepository, RoleRepository, JwtUtils, PasswordEncoder
-// Purpose: User signup/login, JWT cookie management, admin seller list
+/**
+ * Authentication Service Implementation
+ *
+ * Why & Where it is used:
+ *   Manages customer registration, sign-in credential authentication, JWT token issuance via HTTP-only cookies,
+ *   sign-out cookie clearing, and administrative seller account listing.
+ *
+ * Imports & Key Dependencies:
+ *   - Security: AuthenticationManager, PasswordEncoder, JwtUtils, UserDetailsImpl.
+ *   - Repositories: UserRepository (lookup, unique checks), RoleRepository (role assignment).
+ *   - Request/Response Payloads: LoginRequest, SignupRequest, UserInfoResponse, ResponseCookie.
+ *
+ * Exports & Consumers:
+ *   - AuthController: Invoked on `/api/auth/signin`, `/api/auth/signup`, and `/api/auth/signout`.
+ *   - SecurityTests: Validates that public registration cannot escalate privileges to ROLE_ADMIN.
+ *
+ * Project Impact:
+ *   Secures user credentials, hashes passwords via BCrypt, and prevents unauthorized privilege escalation
+ *   by locking down role assignment during self-service signup.
+ */
 
 import com.ecommerce.project.model.AppRole;
 import com.ecommerce.project.model.Role;

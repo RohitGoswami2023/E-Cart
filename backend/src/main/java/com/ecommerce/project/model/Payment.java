@@ -1,5 +1,24 @@
 package com.ecommerce.project.model;
 
+/**
+ * Payment Domain Entity
+ *
+ * Why & Where it is used:
+ *   Represents the financial settlement record linked to an Order in table `payments`.
+ *   Stores gateway transaction identifier (`pgPaymentId`), payment status, gateway response, and provider name.
+ *
+ * Imports & Key Dependencies:
+ *   - Jakarta Persistence: @Entity, @Table, @Index, @OneToOne, @Column(unique = true).
+ *   - Lombok: @Data, @NoArgsConstructor, @AllArgsConstructor.
+ *
+ * Exports & Consumers:
+ *   - PaymentRepository, OrderServiceImpl, StripeWebhookController.
+ *
+ * Project Impact:
+ *   Enforces uniqueness on `pgPaymentId` at the database index level, making it physically impossible
+ *   to replay or duplicate a payment gateway transaction across separate orders.
+ */
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

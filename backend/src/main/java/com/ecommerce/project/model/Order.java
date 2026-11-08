@@ -1,5 +1,26 @@
 package com.ecommerce.project.model;
 
+/**
+ * Order Domain Entity
+ *
+ * Why & Where it is used:
+ *   Represents a customer purchase order in PostgreSQL table `orders`.
+ *   Stores buyer email, order line items, transaction date, associated payment record, total amount,
+ *   lifecycle status (e.g. Order Confirmed, Payment Failed, Cancelled), and shipping destination address.
+ *
+ * Imports & Key Dependencies:
+ *   - Jakarta Persistence: @Entity, @Table, @OneToMany, @OneToOne, @ManyToOne.
+ *   - Jakarta Validation: @Email constraint.
+ *   - Lombok: @Data, @NoArgsConstructor, @AllArgsConstructor.
+ *
+ * Exports & Consumers:
+ *   - OrderRepository, OrderServiceImpl, OrderController, StripeWebhookController.
+ *   - Concurrency & Benchmark tests: Core target of flash sale stress testing.
+ *
+ * Project Impact:
+ *   Central financial record of purchases. Connected to inventory tracking and payment settlement.
+ */
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import lombok.AllArgsConstructor;

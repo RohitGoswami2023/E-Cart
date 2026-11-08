@@ -1,5 +1,24 @@
 package com.ecommerce.project.service;
 
+/**
+ * Product Catalog Service Interface
+ *
+ * Why & Where it is used:
+ *   Specifies business methods for product inventory management: catalog browsing, multi-criteria
+ *   keyword & category search, seller ownership-enforced updates, deletion, and image asset binding.
+ *
+ * Imports & Key Dependencies:
+ *   - Payloads: ProductDTO, ProductResponse.
+ *   - Spring Web: MultipartFile for media updates.
+ *
+ * Exports & Consumers:
+ *   - Implemented by ProductServiceImpl.
+ *   - Injected into ProductController.
+ *
+ * Project Impact:
+ *   Establishes ownership-aware product lifecycle management contracts for multi-vendor eCommerce.
+ */
+
 import com.ecommerce.project.payload.ProductDTO;
 import com.ecommerce.project.payload.ProductResponse;
 import org.springframework.web.multipart.MultipartFile;

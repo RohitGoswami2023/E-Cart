@@ -1,5 +1,23 @@
 package com.ecommerce.project.service;
 
+/**
+ * Analytics Service Implementation
+ *
+ * Why & Where it is used:
+ *   Gathers platform analytics across tables (product catalog size, order volumes, and gross revenue),
+ *   excluding cancelled or refunded orders from revenue calculations.
+ *
+ * Imports & Key Dependencies:
+ *   - Repositories: ProductRepository (count), OrderRepository (count, getTotalRevenue excluding Cancelled).
+ *   - Payloads: AnalyticsResponse.
+ *
+ * Exports & Consumers:
+ *   - Injected into AnalyticsController (`/api/admin/app/analytics`).
+ *
+ * Project Impact:
+ *   Ensures store revenue calculations accurately reflect finalized income rather than counting aborted orders.
+ */
+
 import com.ecommerce.project.payload.AnalyticsResponse;
 import com.ecommerce.project.repositories.OrderRepository;
 import com.ecommerce.project.repositories.ProductRepository;

@@ -1,5 +1,24 @@
 package com.ecommerce.project.service;
 
+/**
+ * Order Service Interface
+ *
+ * Why & Where it is used:
+ *   Specifies the contract for order placement, lifecycle status transitions, order history querying,
+ *   and role-segregated seller/admin order modifications.
+ *
+ * Imports & Key Dependencies:
+ *   - Payloads: OrderDTO, OrderResponse.
+ *   - Transaction Management: Jakarta @Transactional annotations.
+ *
+ * Exports & Consumers:
+ *   - Implemented by OrderServiceImpl.
+ *   - Injected into OrderController and checkout integration tests.
+ *
+ * Project Impact:
+ *   Defines the contract for monetary checkout, stock reservation, and distributed saga compensation.
+ */
+
 import com.ecommerce.project.payload.OrderDTO;
 import com.ecommerce.project.payload.OrderResponse;
 import jakarta.transaction.Transactional;

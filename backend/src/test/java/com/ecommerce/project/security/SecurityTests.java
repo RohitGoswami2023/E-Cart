@@ -1,5 +1,27 @@
 package com.ecommerce.project.security;
 
+/**
+ * Security & Authorization Integration Tests
+ *
+ * Why & Where it is used:
+ *   Validates core security boundaries:
+ *   1) Privilege escalation prevention (signup requests cannot grant ROLE_ADMIN).
+ *   2) IDOR defenses on Address resources (cross-user data access is blocked with 401/404).
+ *   3) IDOR defenses on Cart mutations (cross-user cart deletion is prevented).
+ *   4) Webhook cryptographic signature enforcement (unsigned Stripe webhooks are rejected).
+ *
+ * Imports & Key Dependencies:
+ *   - Spring WebMvc Test: MockMvc, AutoConfigureMockMvc.
+ *   - Repositories & Services: UserRepository, RoleRepository, AddressRepository, CartRepository, AuthService.
+ *   - Benchmark: BenchmarkReport for recording security assertion latencies.
+ *
+ * Exports & Consumers:
+ *   - Executed via `mvnw test "-Dtest=SecurityTests"`.
+ *
+ * Project Impact:
+ *   Guarantees end-to-end multi-tenant isolation, protecting customer PII and administrative controls.
+ */
+
 import com.ecommerce.project.benchmark.BenchmarkReport;
 import com.ecommerce.project.model.*;
 import com.ecommerce.project.repositories.*;

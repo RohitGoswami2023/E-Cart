@@ -1,5 +1,25 @@
 package com.ecommerce.project.model;
 
+/**
+ * User Domain Entity
+ *
+ * Why & Where it is used:
+ *   Represents an identity account in PostgreSQL table `users` (covering 1,000,000+ benchmark users).
+ *   Holds credentials, unique username & email, assigned roles, associated addresses, product listings (for sellers),
+ *   shopping cart reference, and cached Stripe Customer identifier (`stripeCustomerId`).
+ *
+ * Imports & Key Dependencies:
+ *   - Jakarta Persistence: @Entity, @Table, @UniqueConstraint, @ManyToMany (fetch = EAGER for roles), @OneToMany.
+ *   - Jakarta Validation: @Email, @NotBlank, @Size.
+ *   - Lombok: @Getter, @Setter, @NoArgsConstructor.
+ *
+ * Exports & Consumers:
+ *   - UserRepository, UserDetailsServiceImpl, AuthServiceImpl, StripeServiceImpl.
+ *
+ * Project Impact:
+ *   Core user identity entity. Caches Stripe customer IDs directly to avoid redundant external API lookups.
+ */
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

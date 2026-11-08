@@ -1,7 +1,27 @@
 package com.ecommerce.project.service;
 
-// Connected to: OrderRepository, CartRepository, ProductRepository, PaymentRepository, RedisStockGateService, StripeService
-// Purpose: Order placement with payment verification, stock reservation, saga compensation
+/**
+ * Order Service Implementation
+ *
+ * Why & Where it is used:
+ *   Orchestrates end-to-end checkout transactions, enforces atomic inventory reservation,
+ *   coordinates with external payment gateways (Stripe), and executes compensating saga actions
+ *   (stock increment, refund trigger) when payment verification fails downstream.
+ *
+ * Imports & Key Dependencies:
+ *   - Domain Models: Order, OrderItem, Payment, Product, Cart, OrderStatus.
+ *   - Repositories: OrderRepository, CartRepository, ProductRepository, PaymentRepository, OrderItemRepository.
+ *   - External & Caching: StripeService (payment retrieval/refund), RedisStockGateService (atomic counter decrement).
+ *   - Transaction Management: TransactionSynchronizationManager (syncs Redis rollback on DB rollback).
+ *
+ * Exports & Consumers:
+ *   - OrderController: Direct consumer for checkout and order viewing endpoints.
+ *   - SagaCompensatingActionTest & Concurrency Tests: Benchmark test targets.
+ *
+ * Project Impact:
+ *   The core transaction engine. Guarantees zero overselling under heavy concurrency, eliminates
+ *   double charges, and guarantees eventual consistency across database and external payment states.
+ */
 
 import com.ecommerce.project.exceptions.APIException;
 import com.ecommerce.project.exceptions.ResourceNotFoundException;

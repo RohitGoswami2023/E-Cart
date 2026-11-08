@@ -1,7 +1,26 @@
 package com.ecommerce.project.service;
 
-// Connected to: Redis (Upstash), ProductRepository
-// Purpose: Fast-fail stock gate for flash sales, atomic reservation/rollback
+/**
+ * Redis Stock Gate Service
+ *
+ * Why & Where it is used:
+ *   Acts as an ultra-fast in-memory pre-filter during high-concurrency flash sales (e.g. Big Billion Days),
+ *   rejecting oversell attempts before they ever hit the relational database.
+ *
+ * Imports & Key Dependencies:
+ *   - Redis REST Client: Upstash Redis HTTP API with atomic DECRBY and INCRBY commands.
+ *   - Repositories: ProductRepository (used to lazily prime initial inventory if missing from Redis).
+ *   - Spring Web: RestTemplate, HttpHeaders, HttpEntity.
+ *
+ * Exports & Consumers:
+ *   - OrderServiceImpl: Invoked during checkout to atomically claim stock.
+ *   - StripeWebhookController: Increments back the Redis counter upon payment cancellation.
+ *   - FlashSaleConcurrencyTest: Validated under simulated multi-threaded buyer traffic.
+ *
+ * Project Impact:
+ *   Shields PostgreSQL from database connection exhaustion and lock queuing under traffic surges.
+ *   Designed with fail-open behavior so Redis network failures degrade gracefully to database row-level locking.
+ */
 
 import com.ecommerce.project.repositories.ProductRepository;
 import com.fasterxml.jackson.databind.JsonNode;

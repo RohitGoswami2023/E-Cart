@@ -1,5 +1,25 @@
 package com.ecommerce.project.controller;
 
+/**
+ * Category REST Controller
+ *
+ * Why & Where it is used:
+ *   Exposes public endpoints for browsing product categories and administrator endpoints
+ *   for creating, updating, and removing category taxonomy records.
+ *
+ * Imports & Key Dependencies:
+ *   - Service: CategoryService (handles category persistence and pagination).
+ *   - Configurations: AppConstants (default pagination and sort specifications).
+ *   - Payloads: CategoryDTO, CategoryResponse.
+ *
+ * Exports & Consumers:
+ *   - Frontend Navigation Menus, Category Dropdowns, and Storefront Category Grids.
+ *   - Admin Catalog taxonomy configuration screens.
+ *
+ * Project Impact:
+ *   Provides structured hierarchical taxonomy for organizing product lines across the store.
+ */
+
 import com.ecommerce.project.config.AppConstants;
 import com.ecommerce.project.payload.CategoryDTO;
 import com.ecommerce.project.payload.CategoryResponse;
