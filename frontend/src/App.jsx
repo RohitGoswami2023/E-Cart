@@ -36,7 +36,7 @@ WHERE product_id = :id AND quantity >= :qty;  -- 0 rows → reject`}</pre>
           {throughput.map((r) => <tr key={r.claim}><td>{r.claim}</td><td>{r.value}</td>
             <td><span className={`tag ${r.status === 'measured' ? 'ok' : 'warn'}`}>{r.status}</span></td><td className="mute">{r.note}</td></tr>)}
           {[['DbOnlyAtomicDecrement', 'DB-only atomic UPDATE'], ['DbOnlyForUpdate', 'DB-only SELECT … FOR UPDATE']].map(([suite, label]) => {
-            const m = rep.find((x) => x.suite === suite);
+            const m = Array.isArray(rep) ? rep.find((x) => x?.suite === suite) : null;
             return (<tr key={suite}><td>{label}</td>
               <td>{m ? `${m.opsPerSec} ops/s · p50 ${m.p50Ms} ms · p95 ${m.p95Ms} ms` : 'pending'}</td>
               <td><span className={`tag ${m ? (m.passed ? 'ok' : 'bad') : 'warn'}`}>{m ? 'measured' : 'not run'}</span></td>
