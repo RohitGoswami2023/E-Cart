@@ -27,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -106,12 +107,14 @@ public class ProductServiceImpl implements ProductService {
         Pageable pageDetails = page(pageNumber, pageSize, sortBy, sortOrder);
         Specification<Product> spec = (root, query, cb) -> cb.conjunction();
         if (keyword != null && !keyword.isEmpty()) {
+            String escaped = escapeLikePattern(keyword.toLowerCase());
             spec = spec.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.like(criteriaBuilder.lower(root.get("productName")), "%" + keyword.toLowerCase() + "%"));
+                    criteriaBuilder.like(criteriaBuilder.lower(root.get("productName")), "%" + escaped + "%", '\\'));
         }
         if (category != null && !category.isEmpty()) {
+            String escapedCat = escapeLikePattern(category);
             spec = spec.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.like(root.get("category").get("categoryName"), category));
+                    criteriaBuilder.like(root.get("category").get("categoryName"), "%" + escapedCat + "%", '\\'));
         }
         Page<Product> pageProducts = productRepository.findAll(spec, pageDetails);
         return toResponse(pageProducts, true);
@@ -145,7 +148,8 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductResponse searchProductByKeyword(String keyword, Integer pageNumber, Integer pageSize, String sortBy, String sortOrder) {
-        Page<Product> pageProducts = productRepository.findByProductNameLikeIgnoreCase('%' + keyword + '%', page(pageNumber, pageSize, sortBy, sortOrder));
+        String escaped = escapeLikePattern(keyword);
+        Page<Product> pageProducts = productRepository.findByProductNameLikeIgnoreCase('%' + escaped + '%', page(pageNumber, pageSize, sortBy, sortOrder));
         return toResponse(pageProducts, false);
     }
 
@@ -210,11 +214,25 @@ public class ProductServiceImpl implements ProductService {
         return product;
     }
 
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+            "productId", "productName", "price", "discount", "specialPrice", "quantity"
+    );
+
+    private String escapeLikePattern(String input) {
+        if (input == null) return "";
+        return input.replace("\\", "\\\\")
+                    .replace("%", "\\%")
+                    .replace("_", "\\_");
+    }
+
     private Pageable page(Integer pageNumber, Integer pageSize, String sortBy, String sortOrder) {
-        Sort sortByAndOrder = sortOrder.equalsIgnoreCase("asc")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
-        return PageRequest.of(pageNumber, pageSize, sortByAndOrder);
+        int safePageNumber = (pageNumber == null || pageNumber < 0) ? 0 : pageNumber;
+        int safePageSize = (pageSize == null || pageSize <= 0) ? 10 : Math.min(pageSize, 100);
+        String safeSortBy = (sortBy != null && ALLOWED_SORT_FIELDS.contains(sortBy)) ? sortBy : "productId";
+        Sort sortByAndOrder = (sortOrder != null && sortOrder.equalsIgnoreCase("desc"))
+                ? Sort.by(safeSortBy).descending()
+                : Sort.by(safeSortBy).ascending();
+        return PageRequest.of(safePageNumber, safePageSize, sortByAndOrder);
     }
 
     private ProductResponse toResponse(Page<Product> pageProducts, boolean withImageUrl) {

@@ -14,9 +14,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
@@ -44,7 +41,6 @@ public class OrderValidationTests {
     @Autowired
     private StripeService stripeService;
 
-    private Long testProductId;
     private final String testEmail = "order_val@test.com";
     private Long testAddressId;
 
@@ -77,8 +73,7 @@ public class OrderValidationTests {
         product.setSpecialPrice(100.0);
         product.setDiscount(0.0);
         product.setQuantity(10);
-        product = productRepository.save(product);
-        testProductId = product.getProductId();
+        productRepository.save(product);
 
         Cart cart = cartRepository.findCartByEmail(testEmail);
         if (cart == null) {

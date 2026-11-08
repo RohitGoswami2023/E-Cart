@@ -40,9 +40,6 @@ public class StripeReliabilityPipelineTest {
     private PaymentRepository paymentRepository;
 
     @Autowired
-    private OrderItemRepository orderItemRepository;
-
-    @Autowired
     private UserRepository userRepository;
 
     @Autowired

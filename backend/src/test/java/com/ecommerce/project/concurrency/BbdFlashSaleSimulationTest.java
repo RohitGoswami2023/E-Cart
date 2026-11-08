@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import java.util.*;
@@ -15,7 +16,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(com.ecommerce.project.service.FakeStripeTestConfig.class)
 public class BbdFlashSaleSimulationTest {
+
+    @Autowired
+    private com.ecommerce.project.service.FakeStripeService fakeStripeService;
 
     @Autowired
     private ProductRepository productRepository;
@@ -131,6 +136,14 @@ public class BbdFlashSaleSimulationTest {
                     String pgPaymentId = "stripe_ch_" + UUID.randomUUID().toString().substring(0, 8);
                     String pgStatus = willPaymentFail ? "FAILED" : "COMPLETED";
                     String pgMessage = willPaymentFail ? "Card Declined / 3D Secure Timeout" : "Charge Succeeded";
+
+                    fakeStripeService.registerIntent(
+                            pgPaymentId,
+                            willPaymentFail ? "requires_payment_method" : "succeeded",
+                            9999900L,
+                            "usd",
+                            buyer.getEmail()
+                    );
 
                     try {
                         orderService.placeOrder(

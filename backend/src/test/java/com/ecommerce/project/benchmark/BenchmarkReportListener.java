@@ -6,7 +6,6 @@ import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestIdentifier;
 import org.junit.platform.launcher.TestPlan;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;

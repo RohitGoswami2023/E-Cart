@@ -11,7 +11,7 @@ public final class BenchmarkReport {
 
     public static void record(String suite, boolean passed, long durationMs, Integer stockStart, Integer stockEnd,
                               Integer successCount, Integer failCount) {
-        Map<String, Object> row = new ConcurrentHashMap<>();
+        Map<String, Object> row = METRICS.computeIfAbsent(suite, k -> new ConcurrentHashMap<>());
         row.put("suite", suite);
         row.put("passed", passed);
         row.put("durationMs", durationMs);
@@ -19,7 +19,13 @@ public final class BenchmarkReport {
         if (stockEnd != null) row.put("stockEnd", stockEnd);
         if (successCount != null) row.put("successCount", successCount);
         if (failCount != null) row.put("failCount", failCount);
-        METRICS.put(suite, row);
+    }
+
+    public static void putExtra(String suite, String key, Object value) {
+        if (value != null) {
+            Map<String, Object> row = METRICS.computeIfAbsent(suite, k -> new ConcurrentHashMap<>());
+            row.put(key, value);
+        }
     }
 
     public static Map<String, Map<String, Object>> snapshot() {

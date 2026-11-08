@@ -8,7 +8,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "payments")
+@Table(name = "payments", indexes = {
+        @Index(name = "idx_payments_pg_payment_id", columnList = "pgPaymentId", unique = false)
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,15 +24,16 @@ public class Payment {
     private Order order;
 
     @NotBlank
-    @Size(min = 4, message = "Payment method must contain at least 4 characters")
+    @Size(min = 3, message = "Payment method must contain at least 3 characters")
     private String paymentMethod;
-	
+
+    @Column(unique = true)
     private String pgPaymentId;
+
     private String pgStatus;
     private String pgResponseMessage;
 
     private String pgName;
-
 
     public Payment(String paymentMethod, String pgPaymentId, String pgStatus,
                    String pgResponseMessage, String pgName) {

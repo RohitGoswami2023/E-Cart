@@ -1,0 +1,26 @@
+{
+  "generatedAt" : "2026-11-08T07:41:50.494534300Z",
+  "durationMs" : 69482,
+  "total" : 2,
+  "passed" : 2,
+  "failed" : 0,
+  "passRate" : 100.0,
+  "tests" : [ {
+    "name" : "Saga Compensation: Refund issued if stock reservation fails after payment charged",
+    "id" : "[engine:junit-jupiter]/[class:com.ecommerce.project.service.SagaCompensatingActionTest]/[method:shouldRefundWhenStockFailsAfterPayment()]",
+    "status" : "SUCCESSFUL"
+  }, {
+    "name" : "Saga Compensation: Stock should be restored if Payment Gateway fails downstream",
+    "id" : "[engine:junit-jupiter]/[class:com.ecommerce.project.service.SagaCompensatingActionTest]/[method:shouldRestoreStockWhenPaymentFails()]",
+    "status" : "SUCCESSFUL"
+  } ],
+  "metrics" : {
+    "saga-compensation" : {
+      "suite" : "saga-compensation",
+      "stockStart" : 20,
+      "passed" : true,
+      "durationMs" : 5171,
+      "stockEnd" : 20
+    }
+  }
+}

@@ -3,7 +3,6 @@ package com.ecommerce.project.service;
 // Connected to: Redis (Upstash), ProductRepository
 // Purpose: Fast-fail stock gate for flash sales, atomic reservation/rollback
 
-import com.ecommerce.project.model.Product;
 import com.ecommerce.project.repositories.ProductRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -55,7 +54,8 @@ public class RedisStockGateService {
         try {
             Integer current = getStock(productId);
             if (current == null) {
-                int dbStock = productRepository.findById(productId).map(Product::getQuantity).orElse(0);
+                var productOpt = productRepository.findById(productId);
+                int dbStock = productOpt.isPresent() ? productOpt.get().getQuantity() : 0;
                 String setUrl = redisRestUrl + "/set/stock:product:" + productId + "/" + dbStock + "/nx";
                 executeRedisCommand(setUrl, HttpMethod.POST);
             }

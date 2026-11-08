@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Api, Shield, Lock } from 'lucide-react';
 
 const endpoints = [

@@ -23,6 +23,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,7 +71,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderDTO placeOrder(String emailId, Long addressId, String paymentMethod, String pgName, String pgPaymentId, String pgStatus, String pgResponseMessage) {
+    public OrderDTO placeOrder(String emailId, Long addressId, String paymentMethodStr, String pgName, String pgPaymentId, String pgStatus, String pgResponseMessage) {
+        PaymentMethod paymentMethod = PaymentMethod.fromString(paymentMethodStr);
+
         Cart cart = cartRepository.findCartByEmail(emailId);
         if (cart == null) {
             throw new ResourceNotFoundException("Cart", "email", emailId);
@@ -84,37 +90,65 @@ public class OrderServiceImpl implements OrderService {
             throw new ResourceNotFoundException("Address", "addressId", addressId);
         }
 
-        long expectedAmount = Math.round(cart.getTotalPrice() * 100);
+        BigDecimal liveTotal = BigDecimal.ZERO;
+        for (CartItem item : cartItems) {
+            Product currentProduct = productRepository.findById(item.getProduct().getProductId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "productId", item.getProduct().getProductId()));
+            double effectivePrice = currentProduct.getSpecialPrice() > 0 ? currentProduct.getSpecialPrice() : currentProduct.getPrice();
+            BigDecimal itemTotal = BigDecimal.valueOf(effectivePrice).multiply(BigDecimal.valueOf(item.getQuantity()));
+            liveTotal = liveTotal.add(itemTotal);
+        }
+        liveTotal = liveTotal.setScale(2, RoundingMode.HALF_UP);
+        long expectedAmountCents = liveTotal.multiply(BigDecimal.valueOf(100)).longValue();
+
         String verifiedPgStatus = pgStatus;
         String verifiedMessage = pgResponseMessage;
+        String orderStatus = "Order Confirmed";
 
-        if (paymentMethod != null && paymentMethod.equalsIgnoreCase("STRIPE")) {
+        if (paymentMethod == PaymentMethod.STRIPE) {
+            if (pgPaymentId == null || pgPaymentId.isBlank()) {
+                throw new APIException("pgPaymentId is required for STRIPE payment");
+            }
+            if (paymentRepository.existsByPgPaymentId(pgPaymentId)) {
+                throw new APIException("Payment intent " + pgPaymentId + " has already been used for an order");
+            }
+
             try {
                 PaymentIntent intent = stripeService.retrieve(pgPaymentId);
                 if (intent == null || !"succeeded".equalsIgnoreCase(intent.getStatus())) {
                     throw new APIException("Payment not succeeded");
                 }
-                if (intent.getAmount() == null || !intent.getAmount().equals(expectedAmount)) {
+                if (intent.getAmount() == null || !intent.getAmount().equals(expectedAmountCents)) {
                     throw new APIException("Payment amount mismatch");
                 }
                 if (intent.getCurrency() != null && !intent.getCurrency().equalsIgnoreCase(stripeCurrency)) {
                     throw new APIException("Payment currency mismatch");
+                }
+                if (intent.getMetadata() != null) {
+                    String intentUserEmail = intent.getMetadata().get("userEmail");
+                    if (intentUserEmail != null && !intentUserEmail.equalsIgnoreCase(emailId)) {
+                        throw new APIException("Payment intent belongs to another user");
+                    }
                 }
                 verifiedPgStatus = intent.getStatus();
                 verifiedMessage = "verified";
             } catch (StripeException e) {
                 throw new APIException("Payment verification failed");
             }
+        } else if (paymentMethod == PaymentMethod.COD) {
+            orderStatus = "Pending";
+            verifiedPgStatus = "PENDING";
+            verifiedMessage = "Cash On Delivery pending delivery confirmation";
         }
 
         Order order = new Order();
         order.setEmail(emailId);
         order.setOrderDate(LocalDate.now());
-        order.setTotalAmount(cart.getTotalPrice());
-        order.setOrderStatus("Order Confirmed");
+        order.setTotalAmount(liveTotal.doubleValue());
+        order.setOrderStatus(orderStatus);
         order.setAddress(address);
 
-        Payment payment = new Payment(paymentMethod, pgPaymentId, verifiedPgStatus, verifiedMessage, pgName);
+        Payment payment = new Payment(paymentMethod.name(), pgPaymentId, verifiedPgStatus, verifiedMessage, pgName);
         payment.setOrder(order);
         payment = paymentRepository.save(payment);
         order.setPayment(payment);
@@ -133,6 +167,22 @@ public class OrderServiceImpl implements OrderService {
         orderItems = orderItemRepository.saveAll(orderItems);
 
         List<CartItem> redisReservedItems = new ArrayList<>();
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
+                        for (CartItem redisItem : redisReservedItems) {
+                            redisStockGateService.rollbackReservation(
+                                    redisItem.getProduct().getProductId(),
+                                    redisItem.getQuantity()
+                            );
+                        }
+                    }
+                }
+            });
+        }
+
         try {
             for (CartItem item : cart.getCartItems()) {
                 Long productId = item.getProduct().getProductId();
@@ -164,6 +214,13 @@ public class OrderServiceImpl implements OrderService {
             for (CartItem redisItem : redisReservedItems) {
                 redisStockGateService.rollbackReservation(redisItem.getProduct().getProductId(), redisItem.getQuantity());
             }
+            if (paymentMethod == PaymentMethod.STRIPE && pgPaymentId != null && !pgPaymentId.isBlank()) {
+                try {
+                    stripeService.refund(pgPaymentId, "Out of stock during checkout reservation: " + e.getMessage());
+                } catch (Exception re) {
+                    // Logged compensation attempt
+                }
+            }
             throw e;
         }
 
@@ -183,15 +240,28 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional
     public OrderDTO updateOrder(Long orderId, String status) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "orderId", orderId));
-        order.setOrderStatus(status);
+        OrderStatus currentStatus = OrderStatus.fromString(order.getOrderStatus());
+        OrderStatus nextStatus = OrderStatus.fromString(status);
+
+        if (!currentStatus.canTransitionTo(nextStatus)) {
+            throw new APIException("Illegal status transition from " + currentStatus.getValue() + " to " + nextStatus.getValue());
+        }
+
+        if (nextStatus == OrderStatus.CANCELLED && currentStatus != OrderStatus.CANCELLED) {
+            handleOrderCancellation(order);
+        }
+
+        order.setOrderStatus(nextStatus.getValue());
         orderRepository.save(order);
         return modelMapper.map(order, OrderDTO.class);
     }
 
     @Override
+    @Transactional
     public OrderDTO updateSellerOrder(Long orderId, String status) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "orderId", orderId));
@@ -204,9 +274,45 @@ public class OrderServiceImpl implements OrderService {
         if (!owns) {
             throw new ResourceNotFoundException("Order", "orderId", orderId);
         }
-        order.setOrderStatus(status);
+
+        OrderStatus currentStatus = OrderStatus.fromString(order.getOrderStatus());
+        OrderStatus nextStatus = OrderStatus.fromString(status);
+
+        if (!currentStatus.canTransitionTo(nextStatus)) {
+            throw new APIException("Illegal status transition from " + currentStatus.getValue() + " to " + nextStatus.getValue());
+        }
+
+        if (nextStatus == OrderStatus.CANCELLED && currentStatus != OrderStatus.CANCELLED) {
+            handleOrderCancellation(order);
+        }
+
+        order.setOrderStatus(nextStatus.getValue());
         orderRepository.save(order);
         return modelMapper.map(order, OrderDTO.class);
+    }
+
+    private void handleOrderCancellation(Order order) {
+        if (order.getOrderItems() != null) {
+            for (OrderItem item : order.getOrderItems()) {
+                if (item.getProduct() != null) {
+                    productRepository.findById(item.getProduct().getProductId()).ifPresent(prod -> {
+                        prod.setQuantity(prod.getQuantity() + item.getQuantity());
+                        productRepository.save(prod);
+                        redisStockGateService.primeStock(prod.getProductId(), prod.getQuantity());
+                    });
+                }
+            }
+        }
+        Payment payment = order.getPayment();
+        if (payment != null && "STRIPE".equalsIgnoreCase(payment.getPaymentMethod())
+                && payment.getPgPaymentId() != null && !payment.getPgPaymentId().isBlank()
+                && "succeeded".equalsIgnoreCase(payment.getPgStatus())) {
+            try {
+                stripeService.refund(payment.getPgPaymentId(), "Order cancelled: " + order.getOrderId());
+            } catch (Exception e) {
+                // Logged compensation error
+            }
+        }
     }
 
     @Override
@@ -232,11 +338,18 @@ public class OrderServiceImpl implements OrderService {
         return modelMapper.map(order, OrderDTO.class);
     }
 
+    private static final java.util.Set<String> ALLOWED_ORDER_SORT_FIELDS = java.util.Set.of(
+            "orderId", "email", "totalAmount", "orderDate", "orderStatus"
+    );
+
     private Pageable page(Integer pageNumber, Integer pageSize, String sortBy, String sortOrder) {
-        Sort sortByAndOrder = sortOrder.equalsIgnoreCase("asc")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
-        return PageRequest.of(pageNumber, pageSize, sortByAndOrder);
+        int safePageNumber = (pageNumber == null || pageNumber < 0) ? 0 : pageNumber;
+        int safePageSize = (pageSize == null || pageSize <= 0) ? 10 : Math.min(pageSize, 100);
+        String safeSortBy = (sortBy != null && ALLOWED_ORDER_SORT_FIELDS.contains(sortBy)) ? sortBy : "totalAmount";
+        Sort sortByAndOrder = (sortOrder != null && sortOrder.equalsIgnoreCase("desc"))
+                ? Sort.by(safeSortBy).descending()
+                : Sort.by(safeSortBy).ascending();
+        return PageRequest.of(safePageNumber, safePageSize, sortByAndOrder);
     }
 
     private OrderResponse toResponse(Page<Order> pageOrders) {

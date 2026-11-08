@@ -10,7 +10,7 @@ Before running any pipeline, ensure the Java SDK 21 environment and your Stripe 
 
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.6.7-hotspot"
-$env:STRIPE_SECRET_KEY = "sk_test_51TN8Zc3cJNxh7VViO6WOyPpteoQbbfiW3n3ZD2qwvmxCL30PWxv5KMg874GlQVBAnc6tXab6cO6292CZI363Rc9Q00oGTIpEDQ"
+$env:STRIPE_SECRET_KEY = ""
 Set-Location "E:\Project\E Cart\backend"
 ```
 

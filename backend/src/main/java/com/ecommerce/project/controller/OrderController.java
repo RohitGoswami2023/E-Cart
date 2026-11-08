@@ -62,6 +62,11 @@ public class OrderController {
         stripePaymentDto.setAmount(Math.round(cart.getTotalPrice() * 100));
         stripePaymentDto.setCurrency(stripeCurrency);
         stripePaymentDto.setEmail(emailId);
+        if (stripePaymentDto.getMetadata() == null) {
+            stripePaymentDto.setMetadata(new java.util.HashMap<>());
+        }
+        stripePaymentDto.getMetadata().put("userEmail", emailId);
+        stripePaymentDto.getMetadata().put("userId", String.valueOf(authUtil.loggedInUserId()));
         PaymentIntent paymentIntent = stripeService.paymentIntent(stripePaymentDto);
         return new ResponseEntity<>(paymentIntent.getClientSecret(), HttpStatus.CREATED);
     }

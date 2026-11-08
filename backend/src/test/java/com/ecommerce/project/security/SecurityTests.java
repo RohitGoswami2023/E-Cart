@@ -5,14 +5,11 @@ import com.ecommerce.project.model.*;
 import com.ecommerce.project.repositories.*;
 import com.ecommerce.project.security.request.SignupRequest;
 import com.ecommerce.project.service.AuthService;
-import com.ecommerce.project.service.CartService;
-import com.ecommerce.project.service.OrderService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -58,9 +55,6 @@ public class SecurityTests {
 
     @Autowired
     private AuthService authService;
-
-    @Autowired
-    private ObjectMapper objectMapper;
 
     private User testUser;
     private User otherUser;
@@ -146,7 +140,7 @@ public class SecurityTests {
     void addressIdorPrevented() throws Exception {
         long t0 = System.currentTimeMillis();
         mockMvc.perform(get("/api/addresses/" + otherAddress.getAddressId())
-                        .with(csrf()))
+                .with(csrf()))
                 .andExpect(status().isUnauthorized());
         BenchmarkReport.record("address-idor", true, System.currentTimeMillis() - t0, null, null, null, null);
     }
@@ -164,7 +158,7 @@ public class SecurityTests {
         item = cartItemRepository.save(item);
 
         mockMvc.perform(delete("/api/carts/" + otherCart.getCartId() + "/product/" + testProduct.getProductId())
-                        .with(csrf()))
+                .with(csrf()))
                 .andExpect(status().isUnauthorized());
         BenchmarkReport.record("cart-idor", true, System.currentTimeMillis() - t0, null, null, null, null);
     }
@@ -175,8 +169,8 @@ public class SecurityTests {
         long t0 = System.currentTimeMillis();
         String payload = "{\"type\":\"payment_intent.succeeded\"}";
         mockMvc.perform(post("/api/webhooks/stripe")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload))
                 .andExpect(status().isBadRequest());
         BenchmarkReport.record("webhook-signature", true, System.currentTimeMillis() - t0, null, null, null, null);
     }

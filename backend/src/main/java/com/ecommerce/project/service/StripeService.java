@@ -8,4 +8,6 @@ public interface StripeService {
     PaymentIntent paymentIntent(StripePaymentDto stripePaymentDto) throws StripeException;
 
     PaymentIntent retrieve(String paymentIntentId) throws StripeException;
+
+    void refund(String paymentIntentId, String reason) throws StripeException;
 }

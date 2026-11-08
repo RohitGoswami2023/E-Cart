@@ -1,13 +1,15 @@
 package com.ecommerce.project.controller;
 
-// Connected to: PaymentRepository, OrderRepository, ProductRepository, RedisStockGateService
-// Purpose: Stripe webhook handling for payment_intent.succeeded/failed events with stock compensation
+// Connected to: PaymentRepository, OrderRepository, ProductRepository, RedisStockGateService, ProcessedStripeEventRepository
+// Purpose: Stripe webhook handling for payment_intent.succeeded/failed events with stock compensation and deduplication
 
 import com.ecommerce.project.model.Order;
 import com.ecommerce.project.model.OrderItem;
 import com.ecommerce.project.model.Payment;
+import com.ecommerce.project.model.ProcessedStripeEvent;
 import com.ecommerce.project.repositories.OrderRepository;
 import com.ecommerce.project.repositories.PaymentRepository;
+import com.ecommerce.project.repositories.ProcessedStripeEventRepository;
 import com.ecommerce.project.repositories.ProductRepository;
 import com.ecommerce.project.service.RedisStockGateService;
 import com.stripe.model.Event;
@@ -18,12 +20,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
 import java.util.Optional;
 
 @RestController
@@ -36,9 +37,6 @@ public class StripeWebhookController {
     private String webhookSecret;
 
     @Autowired
-    private Environment environment;
-
-    @Autowired
     private PaymentRepository paymentRepository;
 
     @Autowired
@@ -48,27 +46,37 @@ public class StripeWebhookController {
     private ProductRepository productRepository;
 
     @Autowired
+    private ProcessedStripeEventRepository processedStripeEventRepository;
+
+    @Autowired
     private RedisStockGateService redisStockGateService;
 
     @PostMapping("/stripe")
+    @Transactional
     public ResponseEntity<String> handleStripeWebhook(
             @RequestBody String payload,
             @RequestHeader(value = "Stripe-Signature", required = false) String sigHeader) {
 
         Event event;
-        boolean testProfile = Arrays.asList(environment.getActiveProfiles()).contains("test");
         try {
-            if (testProfile && (sigHeader == null || sigHeader.isBlank())) {
-                event = com.stripe.net.ApiResource.GSON.fromJson(payload, Event.class);
-            } else {
-                if (webhookSecret == null || webhookSecret.isBlank() || sigHeader == null) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid signature");
-                }
-                event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
+            if (webhookSecret == null || webhookSecret.isBlank() || sigHeader == null || sigHeader.isBlank()) {
+                log.warn("Stripe webhook rejected: missing secret or signature header");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid signature");
             }
+            event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
         } catch (Exception e) {
             log.error("Stripe webhook verify failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid signature");
+        }
+
+        if (event == null || event.getId() == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing event metadata");
+        }
+
+        // Idempotency check: Guard against duplicate event deliveries
+        if (processedStripeEventRepository.existsByEventId(event.getId())) {
+            log.info("Stripe event {} has already been processed. Returning 200 OK.", event.getId());
+            return ResponseEntity.ok("Event already processed");
         }
 
         EventDataObjectDeserializer dataObjectDeserializer = event.getDataObjectDeserializer();
@@ -82,29 +90,32 @@ public class StripeWebhookController {
             }
         }
 
-        String eventType = event.getType();
         if (paymentIntent == null) {
-            return ResponseEntity.ok("Webhook Handled");
+            processedStripeEventRepository.save(new ProcessedStripeEvent(event.getId(), event.getType()));
+            return ResponseEntity.ok("Webhook Handled (Non-PaymentIntent event)");
         }
 
         Optional<Payment> optionalPayment = paymentRepository.findByPgPaymentId(paymentIntent.getId());
         if (optionalPayment.isEmpty()) {
-            return ResponseEntity.ok("Webhook Handled");
+            processedStripeEventRepository.save(new ProcessedStripeEvent(event.getId(), event.getType()));
+            return ResponseEntity.ok("Webhook Handled (Payment record not found)");
         }
 
         Payment payment = optionalPayment.get();
         Order order = payment.getOrder();
+        String eventType = event.getType();
 
         switch (eventType) {
             case "payment_intent.succeeded":
                 payment.setPgStatus("COMPLETED");
                 payment.setPgResponseMessage("verified");
-                if (order != null) {
+                if (order != null && "Pending".equalsIgnoreCase(order.getOrderStatus())) {
                     order.setOrderStatus("Order Confirmed");
                     orderRepository.save(order);
                 }
                 paymentRepository.save(payment);
                 break;
+
             case "payment_intent.payment_failed":
                 if ("FAILED".equalsIgnoreCase(payment.getPgStatus())) {
                     break;
@@ -122,16 +133,18 @@ public class StripeWebhookController {
                             }
                         }
                     }
-                } else if (order != null) {
+                } else if (order != null && "Pending".equalsIgnoreCase(order.getOrderStatus())) {
                     order.setOrderStatus("Payment Failed");
                     orderRepository.save(order);
                 }
                 paymentRepository.save(payment);
                 break;
+
             default:
                 break;
         }
 
+        processedStripeEventRepository.save(new ProcessedStripeEvent(event.getId(), eventType));
         return ResponseEntity.ok("Webhook Handled");
     }
 }

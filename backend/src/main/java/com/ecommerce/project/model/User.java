@@ -42,6 +42,9 @@ public class User {
     @Column(name = "password")
     private String password;
 
+    @Column(name = "stripe_customer_id")
+    private String stripeCustomerId;
+
     public User(String userName, String email, String password) {
         this.userName = userName;
         this.email = email;

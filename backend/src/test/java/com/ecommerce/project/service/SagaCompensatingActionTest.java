@@ -9,19 +9,22 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(FakeStripeTestConfig.class)
 public class SagaCompensatingActionTest {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private FakeStripeService fakeStripeService;
 
     @Autowired
     private ProductRepository productRepository;
@@ -43,6 +46,7 @@ public class SagaCompensatingActionTest {
     private Long testAddressId;
 
     @BeforeEach
+    @Transactional
     void setup() {
         // Find or create user
         User user = userRepository.findByEmail(testEmail).orElseGet(() -> {
@@ -79,13 +83,13 @@ public class SagaCompensatingActionTest {
 
         // Create or clear Cart
         Cart cart = cartRepository.findCartByEmail(testEmail);
-        if (cart == null) {
-            cart = new Cart();
-            cart.setUser(user);
+        if (cart != null) {
+            cartItemRepository.deleteAllByCartId(cart.getCartId());
             cart.setTotalPrice(200.0);
             cart = cartRepository.save(cart);
         } else {
-            cart.getCartItems().clear();
+            cart = new Cart();
+            cart.setUser(user);
             cart.setTotalPrice(200.0);
             cart = cartRepository.save(cart);
         }
@@ -109,6 +113,9 @@ public class SagaCompensatingActionTest {
         int initialStock = productRepository.findById(testProductId).get().getQuantity();
         assertEquals(20, initialStock);
 
+        // Register failed intent in fake stripe service
+        fakeStripeService.registerIntent("pi_failed_12345", "requires_payment_method", 20000L, "usd", testEmail);
+
         assertThrows(APIException.class, () -> {
             orderService.placeOrder(
                     testEmail,
@@ -126,6 +133,33 @@ public class SagaCompensatingActionTest {
         BenchmarkReport.record("saga-compensation", passed, System.currentTimeMillis() - t0, 20, productAfterRollback.getQuantity(), null, null);
         assertEquals(20, productAfterRollback.getQuantity(),
                 "SAGA Compensation failed: Stock was not restored after payment gateway failure!");
+    }
+
+    @Test
+    @DisplayName("Saga Compensation: Refund issued if stock reservation fails after payment charged")
+    void shouldRefundWhenStockFailsAfterPayment() {
+        // Drain product stock to 0 to force stock reservation failure
+        Product p = productRepository.findById(testProductId).orElseThrow();
+        p.setQuantity(0);
+        productRepository.save(p);
+
+        String paymentId = "pi_succeeded_but_nostock";
+        fakeStripeService.registerIntent(paymentId, "succeeded", 20000L, "usd", testEmail);
+
+        assertThrows(APIException.class, () -> {
+            orderService.placeOrder(
+                    testEmail,
+                    testAddressId,
+                    "STRIPE",
+                    "STRIPE",
+                    paymentId,
+                    "COMPLETED",
+                    "Charge succeeded"
+            );
+        });
+
+        assertTrue(fakeStripeService.wasRefunded(paymentId),
+                "SAGA Compensating Action failed: Refund was not issued when stock reservation failed!");
     }
 }
 

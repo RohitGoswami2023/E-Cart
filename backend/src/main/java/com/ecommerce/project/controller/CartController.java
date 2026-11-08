@@ -6,10 +6,12 @@ import com.ecommerce.project.payload.CartItemDTO;
 import com.ecommerce.project.repositories.CartRepository;
 import com.ecommerce.project.service.CartService;
 import com.ecommerce.project.util.AuthUtil;
+import jakarta.validation.constraints.Min;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -17,6 +19,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api")
+@Validated
 public class CartController {
 
     @Autowired
@@ -36,7 +39,7 @@ public class CartController {
 
     @PostMapping("/carts/products/{productId}/quantity/{quantity}")
     public ResponseEntity<CartDTO> addProductToCart(@PathVariable Long productId,
-                                                    @PathVariable Integer quantity) {
+                                                    @PathVariable @Min(value = 1, message = "Quantity must be at least 1") Integer quantity) {
         CartDTO cartDTO = cartService.addProductToCart(productId, quantity);
         return new ResponseEntity<>(cartDTO, HttpStatus.CREATED);
     }
