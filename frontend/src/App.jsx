@@ -5,7 +5,17 @@ import { flashSale, throughput, endpoints, dataset, limitations } from './data/e
 import { health, report } from './api';
 
 const T = ({ children }) => <table><tbody>{children}</tbody></table>;
-const nav = [['result', 'Result'], ['race', 'Race'], ['saga', 'Saga'], ['throughput', 'Throughput'], ['redis', 'Redis'], ['api', 'API'], ['limits', 'Limits']];
+const nav = [
+  ['result', 'Result'],
+  ['race', 'Race'],
+  ['saga', 'Saga'],
+  ['stripe', 'Stripe'],
+  ['throughput', 'Throughput'],
+  ['redis', 'Redis'],
+  ['api', 'API'],
+  ['docs', 'Docs'],
+  ['limits', 'Limits']
+];
 
 export default function App() {
   const [rep, setRep] = useState([]);
@@ -31,6 +41,20 @@ WHERE product_id = :id AND quantity >= :qty;  -- 0 rows → reject`}</pre>
         <p>A database transaction cannot span Stripe, so stock is reserved locally and returned by a compensating action if the charge fails. Idempotency keys stop a double click from charging twice; the webhook covers timeouts.</p>
         <Saga /></section>
 
+      <section id="stripe"><h2>Stripe Sandbox Live Dashboard <small>Confirmed BBD Flash Sale</small></h2>
+        <p>Real Stripe test transaction captured during high-concurrency simulation verifying PaymentIntent creation, auto-inspection, idempotency keys, and payment confirmation:</p>
+        <div className="box" style={{ padding: 12, textAlign: 'center', background: '#0f172a', borderRadius: 8 }}>
+          <img
+            src="/stripe-dashboard-success.jpg"
+            alt="Stripe Workbench Live Transaction Dashboard showing BBD Flash Sale iPhone 16 Pro Max Purchase"
+            style={{ width: '100%', maxWidth: 900, borderRadius: 6, border: '1px solid #334155', display: 'inline-block' }}
+          />
+          <p className="mute" style={{ margin: '8px 0 0', fontSize: '0.85rem' }}>
+            Captured from Stripe Workbench Inspector: <code>/v1/payment_intents/pi_3UX3Lo3cJNxh7VVi1jr3RFol</code> ($99,999.00 USD Succeeded).
+          </p>
+        </div>
+      </section>
+
       <section id="throughput"><h2>Throughput: measured vs estimated</h2>
         <div className="scroll"><T><tr><th>Claim</th><th>Value</th><th>Status</th><th></th></tr>
           {throughput.map((r) => <tr key={r.claim}><td>{r.claim}</td><td>{r.value}</td>
@@ -50,8 +74,31 @@ WHERE product_id = :id AND quantity >= :qty;  -- 0 rows → reject`}</pre>
       <section id="api"><h2>API surface <small>JWT in cookie, stateless</small></h2>
         {Object.entries(endpoints).map(([role, list]) => <div key={role} className="scroll"><p><b>{role}</b></p>
           <T>{list.map(([m, p]) => <tr key={m + p}><td style={{ width: 150 }}>{m}</td><td>{p}</td></tr>)}</T></div>)}
-        <p><a href="/swagger-ui/index.html">Swagger UI</a> when the backend is running.</p>
+        <p><a href="/swagger-ui/index.html" target="_blank" rel="noreferrer">Open Swagger UI</a> when the backend is running.</p>
         <p><b>Dataset</b></p><T>{dataset.map(([a, b]) => <tr key={a}><td>{a}</td><td>{b}</td></tr>)}</T></section>
+
+      <section id="docs"><h2>Documentation & Engineering Runbooks</h2>
+        <p>Key technical design documents and runbooks available in the repository:</p>
+        <div className="scroll">
+          <T>
+            <tr><th>Document</th><th>Focus & Content</th><th>Location</th></tr>
+            {[
+              ['Flash Sale & Saga Benchmark', 'Empirical 2,000-user concurrency metrics, zero-oversell validation, Stripe trace', 'docs/flash-sale-and-saga-benchmark.md'],
+              ['Technical Defense & System Design', 'High-level architecture, lock comparisons, interview Q&A technical defense', 'docs/interview-technical-defense.md'],
+              ['System Design Playbook', 'Comprehensive distributed systems design patterns and trade-offs', 'docs/system-design-interview-playbook.md'],
+              ['Why Redis Stock Gate is Needed', 'Redis load shielding vs database row-level locking analysis', 'docs/redis-need.md'],
+              ['Backend Pipelines Runbook', 'Execution steps, test commands, database migration instructions', 'docs/pipelines-runbook.md'],
+              ['Commands Execution Runbook', 'Individual test commands, environment variables, Maven test commands', 'docs/commands.md']
+            ].map(([title, desc, loc]) => (
+              <tr key={title}>
+                <td><b>{title}</b></td>
+                <td>{desc}</td>
+                <td><code>{loc}</code></td>
+              </tr>
+            ))}
+          </T>
+        </div>
+      </section>
 
       <section id="limits"><h2>Known limitations</h2>
         {limitations.map((l) => <div key={l.t} className="box" style={{ marginBottom: 10 }}>
